@@ -1,0 +1,193 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_scalar_block_layout : require
+
+#define PI 3.1415926535897932384626433832795
+#define RAY_MIN_DIST 0.01
+#define EPSILON 0.005
+#define MARCH_ITER 32
+#define MARCH_EPS 0.1
+#define INF 1.0/0.0
+
+#include "structs.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(binding = 0) uniform RenderSettings
+{
+    int max_bounces;
+    int aa;
+    uint current_frame;
+    int camera_mode;
+    int top_left_render_mode;
+    int top_right_render_mode;
+    int bottom_left_render_mode;
+    int bottom_right_render_mode;
+    vec2 split_ratio;
+}
+render_settings;
+layout(binding = 1, rgba8) uniform writeonly image2D result_image;
+layout(binding = 2, rgba8) uniform image2D temporal_image;
+layout(binding = 3) buffer Random { float random_source[]; };
+layout(binding = 4) uniform Camera
+{
+    mat4 matrix;
+    vec4 params; /* aspect, hfov, scale, 0 */
+}
+cam;
+ivec2 dim = imageSize(result_image);
+uint iframe = render_settings.current_frame;
+
+layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
+layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
+layout(std430, binding = 7) buffer Materials { Material materials[]; };
+
+#include "util.glsl"
+#include "camera.glsl"
+#include "samples_mapping.glsl"
+#include "intersection.glsl"
+#include "distance_functions.glsl"
+#include "material.glsl"
+#include "integrators.glsl"
+
+bool colour(inout Ray ray, inout Record record)
+{
+    record.distance = -1;
+    bool intersected = intersect_spheres(ray, record);
+    intersected = intersect_triangles(ray, record) || intersected;
+
+    if (intersected)
+    {
+        apply_record(ray, record);
+        return true;
+    }
+    else
+    {
+        record.albedo = vec3(0);
+//        record.emission = mix(vec3(0.9, 0.9, 1), vec3(.6, 0.6, 1), (ray.direction.y - 0.5) * 2);
+         record.emission = vec3(0);
+        record.reflectiveness = 0.0;
+        return false;
+    }
+}
+
+vec3 trace(in Ray ray)
+{
+    vec3 throughput = vec3(1);
+    vec3 final = vec3(0);
+
+    Record record;
+    for (int i = 0; i < render_settings.max_bounces; i++)
+    {
+        if (!colour(ray, record))
+        {
+            final += throughput * record.emission;
+            break;
+        }
+        final += throughput * record.emission;
+        throughput *= record.albedo * record.reflectiveness;
+    }
+
+    return final;
+}
+
+vec3 eval_integrator
+
+	(int integrator_idx,
+	 Ray ray)
+	
+{
+	switch (integrator_idx)
+	{
+	case 0:
+		return integrator_binary(ray, 0, INF);
+    case 1:
+		return integrator_color(ray, 0, INF);
+	case 2:
+		return integrator_depth(ray, 0, INF);
+	case 3:
+		return integrator_normal(ray, 0, INF);
+    case 4:
+        return integrator_Utah(ray, 0, INF);
+	case 5:
+		return integrator_ao(ray, 0, INF, render_settings.max_bounces);
+    case 6:
+        return integrator_Appel(ray, 0, INF);
+    case 7:
+        return integrator_Whitted(ray, 0, INF, render_settings.max_bounces);    
+    case 8:
+        return integrator_Cook(ray, 0, INF, render_settings.max_bounces);
+	case 9:
+		return integrator_Kajiya(ray, 0, INF, render_settings.max_bounces);
+    default:
+        return integrator_Hart(ray, 0, INF);
+	}
+}
+
+
+Ray get_camera_ray
+
+	(int   camera_idx,
+	 float u,
+	 float v)
+	 
+{
+	switch (camera_idx)
+	{
+	case 0:
+		return camera_pinhole_ray(u, v);
+	case 1:
+		return camera_ortho_ray(u, v);
+	default:
+		return camera_spherical_ray(u, v);
+	}
+}
+
+
+void main()
+{
+	/* 
+		Integrators enumeration:
+		
+		0: binary
+		1: depth
+		2: normal
+		3: ao
+        4: Appel
+		5: Kajiya
+		
+	*/
+    int integrator_idx = render_settings.top_left_render_mode;
+    vec2 pixel_split = vec2(gl_GlobalInvocationID) / dim;
+    if (pixel_split.y > render_settings.split_ratio.y)
+    {
+        if (pixel_split.x < render_settings.split_ratio.x)
+            integrator_idx = render_settings.bottom_left_render_mode;
+        else
+            integrator_idx = render_settings.bottom_right_render_mode;
+    }
+    else if (pixel_split.x > render_settings.split_ratio.x)
+        integrator_idx = render_settings.top_right_render_mode;
+
+    vec3 temporal_accumulation_sample =
+        (imageLoad(temporal_image, ivec2(gl_GlobalInvocationID.xy))).xyz *
+        min(render_settings.current_frame, 1);
+
+    vec3 sampled = vec3(0);
+    for (int i = 0; i < render_settings.aa; i++)
+    {
+        vec2 coord = (vec2(gl_GlobalInvocationID.xy) + vec2(rand(), rand())) / dim;
+		coord.y = 1.0-coord.y; /* flip image vertically */
+        
+		Ray ray = get_camera_ray(render_settings.camera_mode, coord.x, coord.y);
+		sampled += eval_integrator(integrator_idx, ray);
+	}
+
+    float current_frame = float(render_settings.current_frame);
+
+    sampled /= render_settings.aa;
+    sampled = temporal_accumulation_sample * current_frame / (current_frame + 1) +
+              sampled / (current_frame + 1);
+
+    imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
+    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
+}
