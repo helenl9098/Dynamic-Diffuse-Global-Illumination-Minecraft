@@ -36,7 +36,7 @@ Camera::Camera(float aspect, glm::vec3 origin, glm::vec3 rotation) : aspect(aspe
 
 void Camera::move(glm::vec3 translation)
 {
-    float camera_factor = 0.03f;
+    float camera_factor = 0.01f;
     auto translation_mat = construct_camera_matrix(this->translation, this->rotation);
     
     if (translation.x != 0.0) {
