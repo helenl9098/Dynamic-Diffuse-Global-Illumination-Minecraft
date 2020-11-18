@@ -19,6 +19,47 @@
     - Add heat map LUT for Hart.
 */
 
+const float TWO_PI = 6.28318531;
+const float SQRT_OF_ONE_THIRD = 0.577350269;
+
+float random(vec3 point) {
+    return fract(sin(dot(point.xyz, vec3(12.9898,78.233, 4.43232))) * 43758.5453);
+}
+
+float random2(vec3 point) {
+	return fract(cos(dot(point.yzx, vec3(873.3, 300.86, 5023.32))) * 43.212);
+}
+
+vec3 calculateRandomDirectionInHemisphere(vec3 normal, vec3 point) {
+	float up = sqrt(random(10 * point));
+	float over = sqrt(1.0 - up * up); // sin(theta)
+    float around = random2(10 * point + normal) * TWO_PI;
+
+    // Find a direction that is not the normal based off of whether or not the
+    // normal's components are all equal to sqrt(1/3) or whether or not at
+    // least one component is less than sqrt(1/3). Learned this trick from
+    // Peter Kutz.
+
+    vec3 directionNotNormal;
+    if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
+        directionNotNormal = vec3(1.0, 0, 0);
+    } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
+        directionNotNormal = vec3(0, 1.0, 0);
+    } else {
+        directionNotNormal = vec3(0, 0, 1.0);
+    }
+
+    // Use not-normal direction to generate two perpendicular directions
+    vec3 perpendicularDirection1 =
+        normalize(cross(normal, directionNotNormal));
+    vec3 perpendicularDirection2 =
+        normalize(cross(normal, perpendicularDirection1));
+
+    return up * normal
+        + cos(around) * over * perpendicularDirection1
+        + sin(around) * over * perpendicularDirection2;
+}
+
 /*--------------------------------------------------------------------------*/
 
 vec3 integrator_binary
@@ -44,11 +85,40 @@ vec3 integrator_binary
     Isect temp_info;
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (distance(temp_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
-            return info.mat.base_color;
-        } else {
-            return vec3(0);
+            col += info.mat.base_color;
         }
     } // end of direct lighting
+
+    // indirect bounce
+
+/*    Ray new_ray = Ray(light_feeler.origin, calculateRandomDirectionInHemisphere(info.normal, light_feeler.origin));
+    Isect new_temp_info;
+
+    if(intersect_scene(new_ray, mint, maxt, new_temp_info)) {
+    	col += temp_info.mat.base_color;
+    }*/
+
+    /* shoot several rays to estimate the occlusion integral */
+	vec3 acc = vec3(0.0);
+	int nrays = 10;
+	for (int i=0; i<nrays; ++i)
+	{
+		Ray new_ray;
+		new_ray.origin = info.pos + EPSILON * info.normal;
+		float u = rand();
+		float v = rand();
+		
+		/* diffuse scattering, pdf cancels out \cos\theta / \pi factor */
+		new_ray.direction = map_cosine_hemisphere_simple(u,v, info.normal);
+		Isect temp_info;
+
+		if(intersect_scene(new_ray, mint, maxt, temp_info)) {
+			acc += temp_info.mat.base_color;
+		}
+		
+	}
+	
+	return col;// + acc / float(nrays);
 
     // everything below is what they used to have
 	//return vec3(intersect_scene_any(ray, mint, maxt));
@@ -198,7 +268,7 @@ vec3 integrator_ao
     normal = dot(ray.direction, normal) < 0.0 ? normal : -normal;   
     
 	/* shoot several rays to estimate the occlusion integral */
-	float acc = 0.0;
+	vec3 acc = vec3(0.0);
 	for (int i=0; i<nrays; ++i)
 	{
 		Ray new_ray;
@@ -208,12 +278,35 @@ vec3 integrator_ao
 		
 		/* diffuse scattering, pdf cancels out \cos\theta / \pi factor */
 		new_ray.direction = map_cosine_hemisphere_simple(u,v,normal);
+		Isect temp_info;
+
+		if(intersect_scene(new_ray, mint, maxt, temp_info)) {
+			
+			/*Ray light_feeler;
+			light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
+			light_feeler.direction = normalize(spheres[0].radius - light_feeler.origin);
+			Isect light_info;
+			if (intersect_scene(light_feeler, mint, maxt, light_info)) {
+	        	if (distance(light_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
+	            	acc += temp_info.mat.base_color;
+	        	} else {
+	        		acc += temp_info.mat.base_color * 0.5;
+	        	}
+	    	}*/
+
+	    	float lambert = clamp(dot(temp_info.normal, normalize(temp_info.pos - spheres[0].origin)), 0.0, 1.0);
+
+	    	acc += temp_info.mat.base_color;
+		}
+
 		
+
 		/* accumulate occlusion */
-		acc += float(intersect_scene_any(new_ray, mint, maxt));
+		//acc *= float(intersect_scene_any(new_ray, mint, maxt));
+		
 	}
 	
-	return vec3(1.0-acc/float(nrays));
+	return acc / float(nrays); //vec3(1.0-acc/float(nrays));
 
 } /* integrator_ao */
 
