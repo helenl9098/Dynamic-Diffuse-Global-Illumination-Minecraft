@@ -70,9 +70,9 @@ void update_camera(Window& window, RVPT& rvpt)
     glm::vec3 movement{};
     double frameDelta = rvpt.time.since_last_frame();
 
-    if (window.is_key_held(Window::KeyCode::KEY_LEFT_SHIFT)) frameDelta *= 5;
+    if (window.is_key_held(Window::KeyCode::KEY_LEFT_CONTROL)) frameDelta *= 5;
     if (window.is_key_held(Window::KeyCode::SPACE)) movement.y += 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_LEFT_CONTROL)) movement.y -= 3.0f;
+    if (window.is_key_held(Window::KeyCode::KEY_LEFT_SHIFT)) movement.y -= 3.0f;
     if (window.is_key_held(Window::KeyCode::KEY_W)) movement.z += 3.0f;
     if (window.is_key_held(Window::KeyCode::KEY_S)) movement.z -= 3.0f;
     if (window.is_key_held(Window::KeyCode::KEY_D)) movement.x += 3.0f;
@@ -92,8 +92,8 @@ void update_camera(Window& window, RVPT& rvpt)
 int main()
 {
     Window::Settings settings;
-    settings.width = 1000;
-    settings.height = 1000;
+    settings.width = 2000;
+    settings.height = 2000;
     Window window(settings);
 
     RVPT rvpt(window);

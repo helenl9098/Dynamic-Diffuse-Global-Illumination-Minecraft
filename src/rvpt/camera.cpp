@@ -7,6 +7,7 @@
 #include <glm/ext.hpp>
 #include <glm/gtx/euler_angles.hpp>
 #include <imgui.h>
+#include <iostream>
 
 #include "imgui_helpers.h"
 
@@ -35,14 +36,35 @@ Camera::Camera(float aspect, glm::vec3 origin, glm::vec3 rotation) : aspect(aspe
 
 void Camera::move(glm::vec3 translation)
 {
+    float camera_factor = 0.03f;
     auto translation_mat = construct_camera_matrix(this->translation, this->rotation);
-    this->translation += glm::vec3(translation_mat * glm::vec4(translation, 0));
+    
+    if (translation.x != 0.0) {
+        glm::vec3 current_right = glm::vec3(glm::normalize(translation_mat * glm::vec4(RIGHT, 0)));
+        this->translation += (translation.x / abs(translation.x)) * camera_factor * glm::normalize(glm::vec3(current_right.x, 0, current_right.z));
+    } 
+    if (translation.y != 0.0)
+    {
+        this->translation += (translation.y / abs(translation.y)) * camera_factor * UP;
+    } 
+    if (translation.z != 0.0)
+    {
+        glm::vec3 current_forward = glm::vec3(glm::normalize(translation_mat * glm::vec4(FORWARD, 0)));
+        this->translation += (translation.z / abs(translation.z)) * camera_factor * glm::normalize(glm::vec3(current_forward.x, 0, current_forward.z));
+    } 
+
+    // CHANGED: This is what they had before
+    //glm::vec3 current_forward = glm::vec3(glm::normalize(translation_mat * glm::vec4(FORWARD, 0)));
+    //std::cout << "current forward vector:" << current_forward.x << ", " << current_forward.y << ", " << current_forward.z << std::endl;
+
+    //this->translation += glm::vec3(translation_mat * glm::vec4(translation, 0));
 }
 
 void Camera::rotate(glm::vec3 rotation)
 {
-    this->rotation += rotation;
-    if (vertical_view_angle_clamp) this->rotation.y = glm::clamp(this->rotation.y, -90.f, 90.f);
+    float camera_factor = 0.3f;
+    this->rotation += rotation * camera_factor;
+    this->rotation.y = glm::clamp(this->rotation.y, -90.f, 90.f);
 }
 void Camera::set_fov(float in_fov) { fov = in_fov; }
 
