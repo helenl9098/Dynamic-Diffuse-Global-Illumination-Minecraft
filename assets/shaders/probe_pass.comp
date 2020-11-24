@@ -9,8 +9,8 @@ layout(binding = 0) buffer Ray
 } rays;
 
 layout(binding = 1, rgba8) uniform writeonly image2D result_albedo;
-layout(binding = 2, rgba8) uniform writeonly image2D result_normals;
-layout(binding = 3, rgba8) uniform writeonly image2D result_distance;
+//layout(binding = 2, rgba8) uniform writeonly image2D result_normals;
+//layout(binding = 3, rgba8) uniform writeonly image2D result_distance;
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);

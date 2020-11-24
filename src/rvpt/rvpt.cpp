@@ -566,6 +566,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
     };
 
     std::vector<VkDescriptorSetLayoutBinding> probe_layout_bindings = {
@@ -784,6 +785,8 @@ void RVPT::add_per_frame_data(int index)
     raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
+    raytracing_descriptors.push_back(
+        std::vector{rendering_resources->probe_texture.descriptor_info()});
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
@@ -929,20 +932,22 @@ void RVPT::record_compute_command_buffer()
     in_temporal_image_barrier.dstQueueFamilyIndex = queue_family;
     in_temporal_image_barrier.srcQueueFamilyIndex = queue_family;
 
-    // Dispath probe shader
+    // Dispatch probe shader
 
-   /* vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK::FLAGS_NONE, 0, nullptr, 0,
                          nullptr, 1, &probe_image_barrier);
 
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      pipeline_builder.get_pipeline(rendering_resources->raytrace_pipeline));
+                      pipeline_builder.get_pipeline(rendering_resources->probe_pipeline));
+
     vkCmdBindDescriptorSets(
         cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, rendering_resources->probe_pipeline_layout, 0,
-        1, &per_frame_data[current_frame_index].raytracing_descriptor_sets.set, 0, 0);
+        1, &per_frame_data[current_frame_index].probe_descriptor_sets.set, 0, 0);
 
-    vkCmdDispatch(cmd_buf, per_frame_data[current_frame_index].output_image.width / 16,
-                  per_frame_data[current_frame_index].output_image.height / 16, 1);*/
+    vkCmdDispatch(cmd_buf, rendering_resources->probe_texture.width, rendering_resources->probe_texture.height, 1);
+
+//    vkQueueWaitIdle(compute_queue->get());
 
     // Dispatch raytracing shader
 
@@ -979,6 +984,9 @@ void RVPT::add_triangle(Triangle triangle)
 
 void RVPT::generate_probe_rays()
 {
+    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
+    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
+    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
     probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
 }
 
