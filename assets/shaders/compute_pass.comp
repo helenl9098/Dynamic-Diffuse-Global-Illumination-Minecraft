@@ -41,6 +41,8 @@ layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
 layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
 layout(std430, binding = 7) buffer Materials { Material materials[]; };
 
+layout(binding = 8, rgba8) uniform readonly image2D probe_image_albedo;
+
 #include "util.glsl"
 #include "camera.glsl"
 #include "samples_mapping.glsl"
@@ -187,6 +189,8 @@ void main()
     sampled /= render_settings.aa;
     sampled = temporal_accumulation_sample * current_frame / (current_frame + 1) +
               sampled / (current_frame + 1);
+
+    vec3 probe = imageLoad(probe_image_albedo, ivec2(0)).xyz;
 
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
     imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
