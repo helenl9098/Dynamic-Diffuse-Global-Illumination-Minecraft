@@ -18,6 +18,7 @@
 #include "camera.h"
 #include "timer.h"
 #include "geometry.h"
+#include "probe.h"
 #include "material.h"
 
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
@@ -62,6 +63,7 @@ public:
     void add_material(Material material);
     void add_sphere(Sphere sphere);
     void add_triangle(Triangle triangle);
+    void generate_probe_rays();
 
     void get_asset_path(std::string& asset_path);
 
@@ -79,6 +81,9 @@ public:
         int bottom_left_render_mode = 9;
         int bottom_right_render_mode = 9;
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
+        int num_probes_width = 1;
+        int num_probes_height = 1;
+        int sqrt_rays_per_probe = 2;
 
     } render_settings;
 
@@ -105,6 +110,7 @@ private:
     std::vector<Sphere> spheres;
     std::vector<Triangle> triangles;
     std::vector<Material> materials;
+    std::vector<ProbeRay> probes; // change to probe class / struct 
 
     struct PreviousFrameState
     {
@@ -150,10 +156,13 @@ private:
     {
         VK::DescriptorPool image_pool;
         VK::DescriptorPool raytrace_descriptor_pool;
+        VK::DescriptorPool probe_descriptor_pool;
         VK::DescriptorPool debug_descriptor_pool;
 
         VkPipelineLayout fullscreen_triangle_pipeline_layout;
         VK::GraphicsPipelineHandle fullscreen_triangle_pipeline;
+        VkPipelineLayout probe_pipeline_layout;
+        VK::ComputePipelineHandle probe_pipeline;
         VkPipelineLayout raytrace_pipeline_layout;
         VK::ComputePipelineHandle raytrace_pipeline;
 
@@ -161,6 +170,7 @@ private:
         VK::GraphicsPipelineHandle debug_opaque_pipeline;
         VK::GraphicsPipelineHandle debug_wireframe_pipeline;
 
+        VK::Image probe_texture;
         VK::Image temporal_storage_image;
         VK::Image depth_buffer;
     };
@@ -177,10 +187,14 @@ private:
         VK::Buffer sphere_buffer;
         VK::Buffer triangle_buffer;
         VK::Buffer material_buffer;
+        VK::Buffer probe_buffer;
+        VK::CommandBuffer probe_command_buffer;
+        VK::Fence probe_work_fence;
         VK::CommandBuffer raytrace_command_buffer;
         VK::Fence raytrace_work_fence;
         VK::DescriptorSet image_descriptor_set;
         VK::DescriptorSet raytracing_descriptor_sets;
+        VK::DescriptorSet probe_descriptor_sets;
 
         VK::Buffer debug_camera_uniform;
         VK::Buffer debug_vertex_buffer;
