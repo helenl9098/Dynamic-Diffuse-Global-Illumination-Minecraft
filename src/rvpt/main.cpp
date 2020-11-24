@@ -107,6 +107,9 @@ int main()
     rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
 
+    rvpt.generate_probe_rays();
+
+
     bool rvpt_init_ret = rvpt.initialize();
     if (!rvpt_init_ret)
     {

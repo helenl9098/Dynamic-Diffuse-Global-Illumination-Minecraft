@@ -22,7 +22,8 @@ set (header_files
     src/rvpt/imgui_impl.h
     src/rvpt/camera.h
     src/rvpt/timer.h
-    src/rvpt/geometry.h)
+    src/rvpt/geometry.h
+    src/rvpt/probe.h)
 
 set (shader_files
     assets/shaders/camera.glsl
@@ -34,6 +35,7 @@ set (shader_files
     assets/shaders/integrators.glsl
     assets/shaders/intersection.glsl
     assets/shaders/material.glsl
+    assets/shaders/probe_pass.comp
     assets/shaders/samples_mapping.glsl
     assets/shaders/structs.glsl
     assets/shaders/tex_sample.frag
