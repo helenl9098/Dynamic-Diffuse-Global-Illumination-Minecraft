@@ -20,6 +20,8 @@
 #include "geometry.h"
 #include "material.h"
 
+#include "irradiance_field.h"
+
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
 static const char* RenderModes[] = {"binary",       "color",          "depth",
@@ -81,6 +83,9 @@ public:
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
 
     } render_settings;
+
+    // irradiance field member variable
+    IrradianceField ir;
 
 private:
     bool show_imgui = true;
@@ -177,6 +182,7 @@ private:
         VK::Buffer sphere_buffer;
         VK::Buffer triangle_buffer;
         VK::Buffer material_buffer;
+        VK::Buffer irradiance_field_uniform;  // S_CHANGED
         VK::CommandBuffer raytrace_command_buffer;
         VK::Fence raytrace_work_fence;
         VK::DescriptorSet image_descriptor_set;
