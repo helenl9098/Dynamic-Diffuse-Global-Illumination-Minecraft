@@ -6,7 +6,7 @@
 #include <fmt/core.h>
 #include "rvpt.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
+#define TINYOBJLOADER_IMPLEMENTATION  // define this in only *one* .cc
 #include "tinyobjloader/tiny_obj_loader.h"
 
 void load_model(RVPT& rvpt, std::string inputfile, int material_id)
@@ -34,10 +34,12 @@ void load_model(RVPT& rvpt, std::string inputfile, int material_id)
     }
 
     // Loop over shapes
-    for (size_t s = 0; s < shapes.size(); s++) {
+    for (size_t s = 0; s < shapes.size(); s++)
+    {
         // Loop over faces(polygon)
         size_t index_offset = 0;
-        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
+        {
             int fv = shapes[s].mesh.num_face_vertices[f];
 
             // Loop over vertices in the face.
@@ -48,11 +50,12 @@ void load_model(RVPT& rvpt, std::string inputfile, int material_id)
             }
             glm::vec3 vertices[3];
 
-            for (size_t v = 0; v < fv; v++) {
+            for (size_t v = 0; v < fv; v++)
+            {
                 tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-                vertices[v].x = attrib.vertices[3*idx.vertex_index+0];
-                vertices[v].y = attrib.vertices[3*idx.vertex_index+1];
-                vertices[v].z = attrib.vertices[3*idx.vertex_index+2];
+                vertices[v].x = attrib.vertices[3 * idx.vertex_index + 0];
+                vertices[v].y = attrib.vertices[3 * idx.vertex_index + 1];
+                vertices[v].z = attrib.vertices[3 * idx.vertex_index + 2];
             }
             index_offset += fv;
 
@@ -62,7 +65,6 @@ void load_model(RVPT& rvpt, std::string inputfile, int material_id)
             shapes[s].mesh.material_ids[f];
         }
     }
-
 }
 
 void update_camera(Window& window, RVPT& rvpt)
@@ -81,7 +83,8 @@ void update_camera(Window& window, RVPT& rvpt)
     rvpt.scene_camera.move(static_cast<float>(frameDelta) * movement);
 
     glm::vec3 rotation{};
-    float rot_speed = 0.3f;
+    // float rot_speed = 0.3f;
+    float rot_speed = 5.f;
     if (window.is_key_down(Window::KeyCode::KEY_RIGHT)) rotation.x = rot_speed;
     if (window.is_key_down(Window::KeyCode::KEY_LEFT)) rotation.x = -rot_speed;
     if (window.is_key_down(Window::KeyCode::KEY_UP)) rotation.y = -rot_speed;
@@ -101,8 +104,8 @@ int main()
     load_model(rvpt, "models/cube.obj", 1);
 
     // Setup Demo Scene
-    rvpt.add_material(Material(glm::vec4(0, 0, 1, 0), glm::vec4(2.0, 2.0, 2.0, 0),
-                               Material::Type::LAMBERT));
+    rvpt.add_material(
+        Material(glm::vec4(0, 0, 1, 0), glm::vec4(2.0, 2.0, 2.0, 0), Material::Type::LAMBERT));
     rvpt.add_sphere(Sphere(glm::vec3(1, 1.5, 1.5), 0.4f, 0));
     rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
@@ -118,7 +121,8 @@ int main()
     window.add_mouse_move_callback([&window, &rvpt](double x, double y) {
         if (window.is_mouse_locked_to_window())
         {
-            rvpt.scene_camera.rotate(glm::vec3(x * 0.3f, -y * 0.3f, 0));
+            // rvpt.scene_camera.rotate(glm::vec3(x * 0.3f, -y * 0.3f, 0));
+            rvpt.scene_camera.rotate(glm::vec3(x * 0.01f, -y * 0.01f, 0));
         }
     });
 
