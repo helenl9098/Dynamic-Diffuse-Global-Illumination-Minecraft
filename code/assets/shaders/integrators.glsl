@@ -40,11 +40,18 @@ vec3 integrator_binary
             return col;
 
     // CHANGED: direct lighting
+    // ray starting from intersected geometry with a direction going from the intersected
+    // point on the geometry to the light's center
     Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
     Isect temp_info;
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (distance(temp_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
-            return info.mat.base_color;
+            // add indirect lighting computation here
+            // box index
+            // correct way
+            // clamp(GridCoord((info.pos - L.probeStartPosition) / L.probeStep), vec3(0, 0, 0), L.probeCounts) - vec3(1, 1, 1));
+            vec3 boxIdx = floor(info.pos);
+            return info.mat.base_color; // direct lighting
         } else {
             return vec3(0);
         }
