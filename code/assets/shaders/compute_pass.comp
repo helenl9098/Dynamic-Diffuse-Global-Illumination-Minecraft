@@ -102,16 +102,18 @@ vec3 trace(in Ray ray)
     return final;
 }
 
+// S_CHANGE
 vec3 eval_integrator
 
 	(int integrator_idx,
-	 Ray ray)
+	 Ray ray,
+     IrradianceField ir)
 	
 {
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF);
+		return integrator_binary(ray, 0, INF, ir);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:

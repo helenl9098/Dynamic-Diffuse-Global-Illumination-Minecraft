@@ -25,7 +25,8 @@ vec3 integrator_binary
 
 	(Ray   ray,      /* primary ray */
 	 float mint,     /* lower bound for t */
-	 float maxt)     /* upper bound for t */
+	 float maxt,    /* upper bound for t */
+     IrradianceField ir)     // S_CHANGE
 	 
 /*
 	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
@@ -50,7 +51,14 @@ vec3 integrator_binary
             // box index
             // correct way
             // clamp(GridCoord((info.pos - L.probeStartPosition) / L.probeStep), vec3(0, 0, 0), L.probeCounts) - vec3(1, 1, 1));
-            vec3 boxIdx = floor(info.pos);
+            ivec3 boxIdx = ivec3(floor(info.pos));
+            for (int i = 0; i < 8; i++) {
+                ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+                ivec3 probeIdx = boxIdx + offset;
+                // sample the probe from this index
+            }
+            if (distance(boxIdx, round(boxIdx)) <= 0.3)
+                return vec3(1, 1, 0);
             return info.mat.base_color; // direct lighting
         } else {
             return vec3(0);
