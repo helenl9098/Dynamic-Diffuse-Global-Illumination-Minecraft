@@ -501,11 +501,11 @@ float opRep(in vec3 p, in vec3 c)
 
 float opRepLim( in vec3 p, in float c, in vec3 l)
 {
-    vec3 q = p-c*clamp(round(p/c),-l,l);
+    vec3 q = p-c*clamp(round(p/c),-l,l); // origin of sphere
     return sdSphere(q, 0.05); // probe radius here
 }
 
-float sceneSDF(vec3 point) {
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength) {
 
 	return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
 }
@@ -527,7 +527,7 @@ vec3 estimateNormal(vec3 pos) {
 
 
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, out Isect info) {
 
 // start of signed distance
 	vec3 ray_origin = ray.origin;
@@ -782,6 +782,8 @@ bool intersect_probes (
 	 Ray  ray,  /* ray for the intersection */
 	 float     mint, /* lower bound for t */
 	 float     maxt, /* upper bound for t */
+	 ivec3 probeCount,
+	 float sideLength,
 	 out Isect info) /* intersection data */ 
 {
 	float closest_t = INF;
@@ -790,7 +792,7 @@ bool intersect_probes (
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, temp_isect)) {
+	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect)) {
 		info = temp_isect;
 		closest_t = info.t;
 
@@ -847,31 +849,6 @@ bool intersect_scene
 			info.mat = convert_old_material(mat);
 		}
 		closest_t = min(temp_isect.t, closest_t);
-	}
-	
-	for (int k = 0; k < 4; k++) {
-		for (int j = 0; j < 4; j++) {
-			for (int i = 0; i < 4; i++) {
-				vec3 origin = vec3(i, j, k);
-				float radius = 0.1f;
-				/* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
-				Ray temp_ray;
-				temp_ray.origin = (ray.origin - origin) / radius;
-				temp_ray.direction = ray.direction / radius;
-				
-				intersect_sphere(temp_ray, mint, closest_t, temp_isect);
-				if (temp_isect.t<closest_t)
-				{
-					info = temp_isect;
-					Material mat;
-					mat.albedo = vec4(1, 0, 1, 0);
-					mat.emission = vec4(0);
-					mat.data = vec4(0);
-					info.mat = convert_old_material(mat);
-				}
-				closest_t = min(temp_isect.t, closest_t);
-			}
-		}
 	}
 
 	/* intersect triangles */

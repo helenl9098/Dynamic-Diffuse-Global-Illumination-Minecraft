@@ -50,7 +50,7 @@ vec3 integrator_binary
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
             return vec3(1, 1, 0); // probe color here
         }
-    }	
+    }
 	
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (distance(temp_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
