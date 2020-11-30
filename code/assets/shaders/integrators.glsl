@@ -46,8 +46,12 @@ vec3 integrator_binary
     // point on the geometry to the light's center
     Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
     Isect temp_info;
-	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info)) {
+	ivec3 boxIdx = ivec3(floor(info.pos / float(sideLength)));
+	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, ivec3(0), temp_info)) {
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
+			if (temp_info.mat.ior == -2) {
+				return vec3(1, 0, 1);
+			}
             return vec3(1, 1, 0); // probe color here
         }
     }
@@ -58,7 +62,6 @@ vec3 integrator_binary
             // box index
             // correct way
             // clamp(GridCoord((info.pos - L.probeStartPosition) / L.probeStep), vec3(0, 0, 0), L.probeCounts) - vec3(1, 1, 1));
-            ivec3 boxIdx = ivec3(floor(info.pos));
             for (int i = 0; i < 8; i++) {
                 ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
                 ivec3 probeIdx = boxIdx + offset;

@@ -499,18 +499,27 @@ float opRep(in vec3 p, in vec3 c)
 }
 
 
-float opRepLim( in vec3 p, in float c, in vec3 l)
+float opRepLim( in vec3 p, in float c, in vec3 l, ivec3 tgtBox, out bool inTgtBox)
 {
 	// q = origin of sphere
 	// l = limits of the bounding box
 	// c = im assuming that this is the spacing between probes
-    vec3 q = p-c*clamp(round(p/c),-l,l);
+	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
+	// loop through the 8 probes defining the tgtBox and check if any is equal to the closest probe
+	for (int i = 0; i < 8; i++) {
+		ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+		ivec3 testProbePos = ivec3(round((tgtBox + offset) * c));
+		if (probeOrigin == testProbePos) {
+			inTgtBox = true;
+		}
+	}
+    vec3 q = p-probeOrigin;
     return sdSphere(q, 0.05); // probe radius here
 }
 
-float sceneSDF(vec3 point, ivec3 probeCount, float sideLength) {
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, ivec3 tgtBox, out bool inTgtBox) {
 	// return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
-	return opRepLim(point, sideLength, vec3(probeCount / 2));
+	return opRepLim(point, sideLength, vec3(probeCount / 2), tgtBox, inTgtBox);
 }
 
 // NOTE: i need to change this function
@@ -535,7 +544,7 @@ vec3 estimateNormal(vec3 pos) {
 
 
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, out Isect info) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, ivec3 tgtBox, out Isect info) {
 
 // start of signed distance
 	vec3 ray_origin = ray.origin;
@@ -549,11 +558,16 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 
 		// current point along the ray
 		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point, probeCount, sideLength);
+		bool inTgtBox = false;
+		float dist = sceneSDF(point, probeCount, sideLength, tgtBox, inTgtBox);
 
 		if (dist < 0.001) {
 			info.t = curr_t;
             info.normal = estimateNormal(point);
+			// indicates that the probe is a part of the cage
+			if (inTgtBox) {
+				info.mat.ior = -2;
+			}
            	return true;
 		}
 		curr_t += dist;
@@ -794,6 +808,7 @@ bool intersect_probes (
 	 float     maxt, /* upper bound for t */
 	 ivec3 probeCount,
 	 float sideLength,
+	 ivec3 tgtBox,
 	 out Isect info) /* intersection data */ 
 {
 	float closest_t = INF;
@@ -802,7 +817,7 @@ bool intersect_probes (
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect)) {
+	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, tgtBox, temp_isect)) {
 		info = temp_isect;
 		closest_t = info.t;
 
