@@ -507,7 +507,7 @@ float opRepLim( in vec3 p, in float c, in vec3 l)
 
 float sceneSDF(vec3 point, ivec3 probeCount, float sideLength) {
 
-	return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
+	return opRepLim(point, 1.0, vec3(probeCount / 2)); // how many in each direction (right now it's 20 * 20 * 20)
 }
 
 vec3 estimateNormal(vec3 pos) {
@@ -536,8 +536,10 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 
 	float curr_t = 0.f;
 	bool isec = false;
+	// signed distance ray marching
 	while (curr_t < (100)) {
 
+		// current point along the ray
 		vec3 point = ray_origin + curr_t * ray_dir;
 		float dist = sceneSDF(point);
 
