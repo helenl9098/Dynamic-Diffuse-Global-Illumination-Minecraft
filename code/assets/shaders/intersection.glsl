@@ -509,7 +509,7 @@ float opRepLim( in vec3 p, in float c, in vec3 l, ivec3 tgtBox, out bool inTgtBo
 	for (int i = 0; i < 8; i++) {
 		ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
 		ivec3 testProbePos = ivec3(round((tgtBox + offset) * c));
-		if (probeOrigin == testProbePos) {
+		if (length(probeOrigin - testProbePos) < 0.0001) {
 			inTgtBox = true;
 		}
 	}
@@ -560,10 +560,11 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 		vec3 point = ray_origin + curr_t * ray_dir;
 		bool inTgtBox = false;
 		float dist = sceneSDF(point, probeCount, sideLength, tgtBox, inTgtBox);
-
+		
 		if (dist < 0.001) {
 			info.t = curr_t;
             info.normal = estimateNormal(point);
+			info.mat.ior = 0;
 			// indicates that the probe is a part of the cage
 			if (inTgtBox) {
 				info.mat.ior = -2;
