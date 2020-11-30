@@ -461,7 +461,7 @@ bool intersect_scene_any
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Helen Cube Marching
+// S_CHANGE
 
 bool getBlockAt(vec3 coords) {
 
@@ -503,26 +503,32 @@ float opRepLim( in vec3 p, in float c, in vec3 l)
 {
 	// q = origin of sphere
 	// l = limits of the bounding box
+	// c = im assuming that this is the spacing between probes
     vec3 q = p-c*clamp(round(p/c),-l,l);
     return sdSphere(q, 0.05); // probe radius here
 }
 
 float sceneSDF(vec3 point, ivec3 probeCount, float sideLength) {
-
-	return opRepLim(point, 1.0, vec3(probeCount / 2)); // how many in each direction (right now it's 20 * 20 * 20)
+	// return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
+	return opRepLim(point, sideLength, vec3(probeCount / 2));
 }
 
+// NOTE: i need to change this function
 vec3 estimateNormal(vec3 pos) {
 
     float epsilon = 0.0001;
     vec3 normal = vec3(0);
-
+	
+	// commented out because i have not passed to this function
+	// the probeCount and sideLength
+	/*
     normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z))
               - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z));
     normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z))
               - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z));
     normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon))
               - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon));
+	*/
 
     return normalize(normal);
 }
@@ -543,7 +549,7 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 
 		// current point along the ray
 		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point);
+		float dist = sceneSDF(point, probeCount, sideLength);
 
 		if (dist < 0.001) {
 			info.t = curr_t;

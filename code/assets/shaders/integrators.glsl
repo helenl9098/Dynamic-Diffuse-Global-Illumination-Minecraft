@@ -46,7 +46,7 @@ vec3 integrator_binary
     // point on the geometry to the light's center
     Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
     Isect temp_info;
-	if (intersect_probes(ray, mint, maxt, temp_info)) {
+	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info)) {
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
             return vec3(1, 1, 0); // probe color here
         }
