@@ -92,8 +92,8 @@ void update_camera(Window& window, RVPT& rvpt)
 int main()
 {
     Window::Settings settings;
-    settings.width = 2000;
-    settings.height = 2000;
+    settings.width = 1000;
+    settings.height = 1000;
     Window window(settings);
 
     RVPT rvpt(window);
@@ -101,9 +101,9 @@ int main()
     load_model(rvpt, "models/cube.obj", 1);
 
     // Setup Demo Scene
-    rvpt.add_material(Material(glm::vec4(0, 0, 1, 0), glm::vec4(2.0, 2.0, 2.0, 0),
+    rvpt.add_material(Material(glm::vec4(0, 0, 1, 0), glm::vec4(10.0, 50.0, 50.0, 0),
                                Material::Type::LAMBERT));
-    rvpt.add_sphere(Sphere(glm::vec3(1, 1.5, 1.5), 0.4f, 0));
+    rvpt.add_sphere(Sphere(glm::vec3(10, 10.5, 10.5), 0.5f, 0));
     rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
 

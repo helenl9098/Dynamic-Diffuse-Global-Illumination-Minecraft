@@ -74,10 +74,10 @@ public:
         int aa = 1;
         uint32_t current_frame = 1;
         int camera_mode = 0;
-        int top_left_render_mode = 9;
-        int top_right_render_mode = 9;
-        int bottom_left_render_mode = 9;
-        int bottom_right_render_mode = 9;
+        int top_left_render_mode = 0;
+        int top_right_render_mode = 0;
+        int bottom_left_render_mode = 0;
+        int bottom_right_render_mode = 0;
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
 
     } render_settings;
