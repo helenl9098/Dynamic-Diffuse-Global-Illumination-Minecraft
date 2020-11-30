@@ -46,6 +46,12 @@ vec3 integrator_binary
     // point on the geometry to the light's center
     Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
     Isect temp_info;
+	if (intersect_probes(ray, mint, maxt, temp_info)) {
+        if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
+            return vec3(1, 1, 0); // probe color here
+        }
+    }	
+	
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (distance(temp_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
             // add indirect lighting computation here
@@ -58,27 +64,6 @@ vec3 integrator_binary
                 ivec3 probeIdx = boxIdx + offset;
                 // sample the probe from this index
             }
-			
-			vec3 rdIdx = vec3(0);
-			if (info.pos.x < 0.5) {
-				rdIdx.x = floor(info.pos.x);
-			} else {
-				rdIdx.x = ceil(info.pos.x);
-			}
-			if (info.pos.y < 0.5) {
-				rdIdx.y = floor(info.pos.y);
-			} else {
-				rdIdx.y = ceil(info.pos.y);
-			}
-			if (info.pos.z < 0.5) {
-				rdIdx.z = floor(info.pos.z);
-			} else {
-				rdIdx.z = ceil(info.pos.z);
-			}
-			
-            if (length(info.pos - rdIdx) <= 0.7f) {
-				return vec3(1, 0, 1);
-			}
 			
             return info.mat.base_color; // direct lighting
         } else {

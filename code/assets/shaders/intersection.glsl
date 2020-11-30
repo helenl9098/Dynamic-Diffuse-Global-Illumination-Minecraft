@@ -459,6 +459,353 @@ bool intersect_scene_any
 	
 } /* intersect_scene_any */
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Helen Cube Marching
+
+bool getBlockAt(vec3 coords) {
+
+	// TO DO: STUB FOR Now
+	if (length(coords) > 20.0 && coords.y < 18.0) {
+		return true;
+	}
+	return false;
+}
+
+float sdBox(vec3 p, vec3 b)
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+float sdSphere(vec3 p, float s)
+{
+  return length(p)-s;
+}
+
+bool getVoxel(vec3 c) {
+	vec3 p = c + vec3(0.5);
+	float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
+	return d < 0.0;
+}
+
+float opUnion( float d1, float d2 ) {  return min(d1,d2); }
+float opSubtraction( float d1, float d2 ) { return max(-d1,d2); }
+ 
+float opRep(in vec3 p, in vec3 c)
+{
+    vec3 q = mod(p+0.5*c,c)-0.5*c;
+    return sdSphere(q, 0.05);
+}
+
+
+float opRepLim( in vec3 p, in float c, in vec3 l)
+{
+    vec3 q = p-c*clamp(round(p/c),-l,l);
+    return sdSphere(q, 0.05); // probe radius here
+}
+
+float sceneSDF(vec3 point) {
+
+	return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
+}
+
+vec3 estimateNormal(vec3 pos) {
+
+    float epsilon = 0.0001;
+    vec3 normal = vec3(0);
+
+    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z))
+              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z));
+    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z))
+              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z));
+    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon))
+              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon));
+
+    return normalize(normal);
+}
+
+
+// this is what ray traces the probes
+bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
+
+// start of signed distance
+	vec3 ray_origin = ray.origin;
+	vec3 curr_cell = vec3(floor(ray.origin));
+	vec3 ray_dir = normalize(ray.direction); 
+
+	float curr_t = 0.f;
+	bool isec = false;
+	while (curr_t < (100)) {
+
+		vec3 point = ray_origin + curr_t * ray_dir;
+		float dist = sceneSDF(point);
+
+		if (dist < 0.001) {
+			info.t = curr_t;
+            info.normal = estimateNormal(point);
+           	return true;
+		}
+		curr_t += dist;
+	}
+	return false;
+//end of signed distance
+
+}
+
+// marches along ray and checks for blocks at locations
+// changed from code given in CIS460
+bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
+	vec3 ray_origin = ray.origin;
+	vec3 curr_cell = vec3(floor(ray.origin));
+	vec3 ray_dir = normalize(ray.direction);
+
+	vec3 t2;
+	float curr_t = 0.0;
+	for (int i = 0; i < 200; i++) {
+	    // calculate distance to voxel boundary
+        t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
+        // go to next voxel
+        curr_t += (min(min(t2.x, t2.y), t2.z)+.00001);
+        ray_origin = ray.origin + ray_dir * curr_t;
+        // get voxel's center
+        vec3 pi=ceil(ray_origin) - 0.5;
+
+        if (getBlockAt(ceil(ray_origin))) {
+        	info.t = curr_t;
+
+        	vec3 diff = normalize(ray_origin - pi);
+
+        	vec3 normal = vec3(0, 0, 0);
+        	float max = 0.0;
+        	for (int i = 0; i < 3; i++) {
+        		if (abs(diff[i]) > max) {
+        			max = diff[i];
+        			normal = vec3(0);
+        			normal[i] = sign(diff[i]) * 1; 
+        		}
+        	}
+
+        	info.normal = diff;
+        	return true;
+        }
+    }
+
+// start of signed distance 
+/*
+	float curr_t = 0.f;
+	bool isec = false;
+	while (curr_t < (100)) {
+
+		vec3 point = ray_origin + curr_t * ray_dir;
+		float dist = sceneSDF(point);
+
+		if (dist < 0.001) {
+			info.t = curr_t;
+			//info.normal = vec3(1, 0, 0);
+            info.normal = estimateNormal(point);
+            //info.pos = point + 0.01 * info.normal;
+           	return true;
+		} 
+
+		curr_t += dist;
+*/
+//end of signed distance
+
+
+/*
+		// find distance to closest axis
+		float min_t = 1.0;
+
+		//sdBox(vec3(0.5, 0.5, 0.5), vec3(1, 1, 1));
+		
+		for (int i = 0; i < 3; i++) {
+			if (ray_dir[i] != 0) {
+				float direction = sign(ray_dir[i]);
+				vec3 current_pos = ray_origin + curr_t * ray_dir;
+				// if we are going in the negative direction
+				if (direction < 0.f) {
+					// if we are going in the negative direction, we want to find the
+					// closest FLOORED axis
+					float dist_to_axis = abs(current_pos[i] - floor(current_pos[i]));
+					if (dist_to_axis > 0.0001 && dist_to_axis < min_t) {
+						min_t = dist_to_axis + 0.00001;
+					}
+
+				}
+				// if we are going in the positive direction
+				else if (direction > 0.f) {
+					// if we are going in the negative direction, we want to find the
+					// closest ceil axis
+					float dist_to_axis = abs(ceil(current_pos[i]) - current_pos[i]);
+					if (dist_to_axis > 0.0001 && dist_to_axis < min_t) {
+						min_t = dist_to_axis + 0.00001;
+					}
+				}
+			}
+		}
+
+		/*
+		int interface_axis = -1; // Track axis for which t is smallest
+		
+		for(int i = 0; i < 3; ++i) { // Iterate over the three axes 
+			if(ray_dir[i] != 0) { // Is ray parallel to axis i?
+				float offset = max(0.f, sign(ray_dir[i]));
+				// If the player is *exactly* on an interface then
+            	// they'll never move if they're looking in a negative direction
+            	if(curr_cell[i] == ray_origin[i] && offset == 0.f) {
+            		offset = -1.f;
+            	}
+
+            	float next_inter = curr_cell[i] + offset;
+            	float axis_t = (next_inter - ray_origin[i]) / ray_dir[i];
+
+            	
+            	//axis_t = min(axis_t, maxt); // Clamp to max len to avoid super out of bounds errors
+            	
+            	if (axis_t < min_t && axis_t > 0.f) {
+            		min_t = axis_t;
+            	    interface_axis = i;
+            	}
+            }
+		}
+		*/
+
+		/*
+		if(interface_axis == -1) {
+        	return false;
+        }  */
+
+/*        curr_t += min_t;
+
+        
+        //ray_origin += ray_dir * min_t;
+        //vec3 offset = vec3(0, 0, 0);
+
+        // Sets it to 0 if sign is +, -1 if sign is -
+        //offset[interface_axis] = min(0.f, sign(ray_dir[interface_axis]));
+        curr_cell = vec3(floor(ray_origin + curr_t * ray_dir));
+
+        // If currCell contains something other than EMPTY, return
+        // curr_t
+        bool hit_block = getBlockAt(curr_cell);
+        
+        if (hit_block == true) {
+        //if (curr_cell[0] == 0.f) {
+        	/*
+        	Isect temp_isect;
+        	temp_isect.t = curr_t;
+        	temp_isect.pos = curr_t * ray.direction + ray.origin; 
+
+        	// calculate normal 
+        	//vec3 curr_cell_center = 
+        	temp_isect.normal = vec3(1, 0, 0);
+
+        	
+			//Material mat;
+			//mat.albedo = vec4(1, 0, 0, 0);
+    		//mat.emission = vec4(1, 1, 1, 0);
+    		//mat.data = vec4(0, 0, 0, 0);
+
+    		//temp_isect.mat = convert_old_material(mat);
+
+    		info = temp_isect;
+
+            return true;
+            */
+            
+
+            //info.t = curr_t;
+            //info.pos = curr_t * ray_dir + ray.origin;
+           // info.normal = vec3(1, 0, 0);
+           // return true;
+            //break;
+        //}
+
+	//}
+
+	return false;
+}
+
+/*
+bool grid_march2(Ray ray, float mint, float maxt, out Isect info) {
+	vec3 rayOrigin = ray.origin;
+	float maxLen = length(ray.direction); // Farthest we search
+    vec3 currCell = vec3(floor(rayOrigin));
+    vec3 rayDirection = normalize(ray.direction); // Now all t values represent world dist.
+
+    float curr_t = 0.f;
+    while(curr_t < maxLen) {
+        float min_t = sqrt(3.f);
+        float interfaceAxis = -1; // Track axis for which t is smallest
+        for(int i = 0; i < 3; ++i) { // Iterate over the three axes
+            if(rayDirection[i] != 0) { // Is ray parallel to axis i?
+                float offset = max(0.f, sign(rayDirection[i])); // See slide 5
+                // If the player is *exactly* on an interface then
+                // they'll never move if they're looking in a negative direction
+                if(currCell[i] == rayOrigin[i] && offset == 0.f) {
+                    offset = -1.f;
+                }
+                int nextIntercept = currCell[i] + offset;
+                float axis_t = (nextIntercept - rayOrigin[i]) / rayDirection[i];
+                axis_t = min(axis_t, maxLen); // Clamp to max len to avoid super out of bounds errors
+                if(axis_t < min_t) {
+                    min_t = axis_t;
+                    interfaceAxis = i;
+                }
+            }
+        }
+        if(interfaceAxis == -1) {
+        	return false;
+            //throw std::out_of_range("interfaceAxis was -1 after the for loop in gridMarch!");
+        }
+        curr_t += min_t; // min_t is declared in slide 7 algorithm
+        rayOrigin += rayDirection * min_t;
+        vec3 offset = vec3(0,0,0);
+        // Sets it to 0 if sign is +, -1 if sign is -
+        offset[interfaceAxis] = min(0.f, sign(rayDirection[interfaceAxis]));
+        currCell = vec3(floor(rayOrigin)) + offset;
+        // If currCell contains something other than EMPTY, return
+        // curr_t
+        BlockType cellType = terrain.getBlockAt(currCell.x, currCell.y, currCell.z);
+        if(cellType != EMPTY) {
+            *out_blockHit = currCell;
+            *out_dist = glm::min(maxLen, curr_t);
+            return true;
+        }
+    }
+    *out_dist = min(maxLen, curr_t);
+    return false;
+} */
+
+bool intersect_probes (
+	 Ray  ray,  /* ray for the intersection */
+	 float     mint, /* lower bound for t */
+	 float     maxt, /* upper bound for t */
+	 out Isect info) /* intersection data */ 
+{
+	float closest_t = INF;
+	info.t = closest_t;
+	info.pos = vec3(0);
+	info.normal = vec3(0);
+	Isect temp_isect;
+
+	if (implicit_surface(ray, mint, maxt, temp_isect)) {
+		info = temp_isect;
+		closest_t = info.t;
+
+		info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
+					
+		info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
+
+		info.pos += 0.001 * info.normal;
+	
+		return true;
+	}
+	return false;
+}
+
+
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene
