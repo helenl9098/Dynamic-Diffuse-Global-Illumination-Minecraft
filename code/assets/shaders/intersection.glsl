@@ -460,15 +460,6 @@ bool intersect_scene_any
 } /* intersect_scene_any */
 
 
-bool getBlockAt(vec3 coords) {
-
-	// TO DO: STUB FOR Now
-	if (length(coords) > 20.0 && coords.y < 18.0) {
-		return true;
-	}
-	return false;
-}
-
 float sdBox(vec3 p, vec3 b)
 {
   vec3 q = abs(p) - b;
@@ -550,6 +541,92 @@ bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
 
 }
 
+float cave_sdf(vec3 coords) {
+	float sdf = sdSphere(coords, 10.0);
+	return opUnion(sdf, sdSphere(coords + vec3(2, 2, 2), 5.0));
+}
+
+float random1( vec3 p ) {
+    return fract(sin((dot(p, vec3(127.1,
+                                  311.7,
+                                  191.999)))) *         
+                 43758.5453);
+}
+
+float noise2D( vec2 p ) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) *
+                 43758.5453);
+}
+
+
+float interpNoise2D(float x, float y) {
+    int intX = int(floor(x));
+    float fractX = fract(x);
+    int intY = int(floor(y));
+    float fractY = fract(y);
+
+    float v1 = noise2D(vec2(intX, intY));
+    float v2 = noise2D(vec2(intX + 1, intY));
+    float v3 = noise2D(vec2(intX, intY + 1));
+    float v4 = noise2D(vec2(intX + 1, intY + 1));
+
+    float i1 = mix(v1, v2, fractX);
+    float i2 = mix(v3, v4, fractX);
+    return mix(i1, i2, fractY);
+}
+
+
+float fbm(float x, float y) {
+    float total = 0;
+    float persistence = 0.5;
+    int octaves = 8;
+
+    for(int i = 1; i <= octaves; i++) {
+        float freq = pow(2.f, i);
+        float amp = pow(persistence, i);
+
+        total += interpNoise2D(x * freq,
+                               y * freq) * amp;
+    }
+    return total;
+}
+
+
+bool getBlockAt(vec3 coords) {
+
+	// TO DO: STUB FOR Now
+	if (coords.y > 17.0) {
+		return false;
+	}
+	if (coords.y < -15) {
+		float r = fbm(coords.x * 0.1, coords.z * 0.1);
+		int d = int(floor(r * 4.0));
+		if (-19 + d >= coords.y) {
+			return true;
+		}
+	}
+	if (sdSphere(coords, 20.0) > 0.0) {
+		if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
+			if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
+				if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
+					if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
+						if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
+								return true;
+						}
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+vec4 getColorAt(vec3 p) {
+	float r = (random1(p) / 4) + 0.1; // range of 0.3 to 0.8
+	//r = floor(r * 10.0) / 10.0;
+	return vec4(0.1, r, r, 1);
+}
+
 // marches along ray and checks for blocks at locations
 // changed from code given in CIS460
 bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
@@ -563,217 +640,37 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
 	    // calculate distance to voxel boundary
         t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
         // go to next voxel
-        curr_t += (min(min(t2.x, t2.y), t2.z)+.00001);
+        curr_t += (min(min(t2.x, t2.y), t2.z) + 0.0001);
         ray_origin = ray.origin + ray_dir * curr_t;
         // get voxel's center
-        vec3 pi=ceil(ray_origin) - 0.5;
+        vec3 pi = ceil(ray_origin) - 0.5;
 
         if (getBlockAt(ceil(ray_origin))) {
         	info.t = curr_t;
 
-        	vec3 diff = normalize(ray_origin - pi);
+        	Material mat = materials[1]; // TO DO: Don't hard code this
+        	mat.albedo = getColorAt(ceil(ray_origin));
+			info.mat = convert_old_material(mat);
 
+			// normal calculation
+        	vec3 diff = normalize(ray_origin - pi);
         	vec3 normal = vec3(0, 0, 0);
         	float max = 0.0;
         	for (int i = 0; i < 3; i++) {
         		if (abs(diff[i]) > max) {
-        			max = diff[i];
+        			max = abs(diff[i]);
         			normal = vec3(0);
         			normal[i] = sign(diff[i]) * 1; 
         		}
         	}
 
-        	info.normal = diff;
+        	info.normal = normal;
         	return true;
         }
     }
 
-// start of signed distance 
-/*
-	float curr_t = 0.f;
-	bool isec = false;
-	while (curr_t < (100)) {
-
-		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point);
-
-		if (dist < 0.001) {
-			info.t = curr_t;
-			//info.normal = vec3(1, 0, 0);
-            info.normal = estimateNormal(point);
-            //info.pos = point + 0.01 * info.normal;
-           	return true;
-		} 
-
-		curr_t += dist;
-*/
-//end of signed distance
-
-
-/*
-		// find distance to closest axis
-		float min_t = 1.0;
-
-		//sdBox(vec3(0.5, 0.5, 0.5), vec3(1, 1, 1));
-		
-		for (int i = 0; i < 3; i++) {
-			if (ray_dir[i] != 0) {
-				float direction = sign(ray_dir[i]);
-				vec3 current_pos = ray_origin + curr_t * ray_dir;
-				// if we are going in the negative direction
-				if (direction < 0.f) {
-					// if we are going in the negative direction, we want to find the
-					// closest FLOORED axis
-					float dist_to_axis = abs(current_pos[i] - floor(current_pos[i]));
-					if (dist_to_axis > 0.0001 && dist_to_axis < min_t) {
-						min_t = dist_to_axis + 0.00001;
-					}
-
-				}
-				// if we are going in the positive direction
-				else if (direction > 0.f) {
-					// if we are going in the negative direction, we want to find the
-					// closest ceil axis
-					float dist_to_axis = abs(ceil(current_pos[i]) - current_pos[i]);
-					if (dist_to_axis > 0.0001 && dist_to_axis < min_t) {
-						min_t = dist_to_axis + 0.00001;
-					}
-				}
-			}
-		}
-
-		/*
-		int interface_axis = -1; // Track axis for which t is smallest
-		
-		for(int i = 0; i < 3; ++i) { // Iterate over the three axes 
-			if(ray_dir[i] != 0) { // Is ray parallel to axis i?
-				float offset = max(0.f, sign(ray_dir[i]));
-				// If the player is *exactly* on an interface then
-            	// they'll never move if they're looking in a negative direction
-            	if(curr_cell[i] == ray_origin[i] && offset == 0.f) {
-            		offset = -1.f;
-            	}
-
-            	float next_inter = curr_cell[i] + offset;
-            	float axis_t = (next_inter - ray_origin[i]) / ray_dir[i];
-
-            	
-            	//axis_t = min(axis_t, maxt); // Clamp to max len to avoid super out of bounds errors
-            	
-            	if (axis_t < min_t && axis_t > 0.f) {
-            		min_t = axis_t;
-            	    interface_axis = i;
-            	}
-            }
-		}
-		*/
-
-		/*
-		if(interface_axis == -1) {
-        	return false;
-        }  */
-
-/*        curr_t += min_t;
-
-        
-        //ray_origin += ray_dir * min_t;
-        //vec3 offset = vec3(0, 0, 0);
-
-        // Sets it to 0 if sign is +, -1 if sign is -
-        //offset[interface_axis] = min(0.f, sign(ray_dir[interface_axis]));
-        curr_cell = vec3(floor(ray_origin + curr_t * ray_dir));
-
-        // If currCell contains something other than EMPTY, return
-        // curr_t
-        bool hit_block = getBlockAt(curr_cell);
-        
-        if (hit_block == true) {
-        //if (curr_cell[0] == 0.f) {
-        	/*
-        	Isect temp_isect;
-        	temp_isect.t = curr_t;
-        	temp_isect.pos = curr_t * ray.direction + ray.origin; 
-
-        	// calculate normal 
-        	//vec3 curr_cell_center = 
-        	temp_isect.normal = vec3(1, 0, 0);
-
-        	
-			//Material mat;
-			//mat.albedo = vec4(1, 0, 0, 0);
-    		//mat.emission = vec4(1, 1, 1, 0);
-    		//mat.data = vec4(0, 0, 0, 0);
-
-    		//temp_isect.mat = convert_old_material(mat);
-
-    		info = temp_isect;
-
-            return true;
-            */
-            
-
-            //info.t = curr_t;
-            //info.pos = curr_t * ray_dir + ray.origin;
-           // info.normal = vec3(1, 0, 0);
-           // return true;
-            //break;
-        //}
-
-	//}
-
 	return false;
 }
-
-/*
-bool grid_march2(Ray ray, float mint, float maxt, out Isect info) {
-	vec3 rayOrigin = ray.origin;
-	float maxLen = length(ray.direction); // Farthest we search
-    vec3 currCell = vec3(floor(rayOrigin));
-    vec3 rayDirection = normalize(ray.direction); // Now all t values represent world dist.
-
-    float curr_t = 0.f;
-    while(curr_t < maxLen) {
-        float min_t = sqrt(3.f);
-        float interfaceAxis = -1; // Track axis for which t is smallest
-        for(int i = 0; i < 3; ++i) { // Iterate over the three axes
-            if(rayDirection[i] != 0) { // Is ray parallel to axis i?
-                float offset = max(0.f, sign(rayDirection[i])); // See slide 5
-                // If the player is *exactly* on an interface then
-                // they'll never move if they're looking in a negative direction
-                if(currCell[i] == rayOrigin[i] && offset == 0.f) {
-                    offset = -1.f;
-                }
-                int nextIntercept = currCell[i] + offset;
-                float axis_t = (nextIntercept - rayOrigin[i]) / rayDirection[i];
-                axis_t = min(axis_t, maxLen); // Clamp to max len to avoid super out of bounds errors
-                if(axis_t < min_t) {
-                    min_t = axis_t;
-                    interfaceAxis = i;
-                }
-            }
-        }
-        if(interfaceAxis == -1) {
-        	return false;
-            //throw std::out_of_range("interfaceAxis was -1 after the for loop in gridMarch!");
-        }
-        curr_t += min_t; // min_t is declared in slide 7 algorithm
-        rayOrigin += rayDirection * min_t;
-        vec3 offset = vec3(0,0,0);
-        // Sets it to 0 if sign is +, -1 if sign is -
-        offset[interfaceAxis] = min(0.f, sign(rayDirection[interfaceAxis]));
-        currCell = vec3(floor(rayOrigin)) + offset;
-        // If currCell contains something other than EMPTY, return
-        // curr_t
-        BlockType cellType = terrain.getBlockAt(currCell.x, currCell.y, currCell.z);
-        if(cellType != EMPTY) {
-            *out_blockHit = currCell;
-            *out_dist = glm::min(maxLen, curr_t);
-            return true;
-        }
-    }
-    *out_dist = min(maxLen, curr_t);
-    return false;
-} */
 
 
 bool intersect_probes (
@@ -868,6 +765,7 @@ bool intersect_scene
 	*/
 
 	// CHANGED: added floor
+	/*
 	intersect_plane(ray, -0.5, vec3(0, 1, 0), mint, maxt, temp_isect);
 	if (temp_isect.t<closest_t)
 	{
@@ -875,14 +773,12 @@ bool intersect_scene
 		Material mat = materials[2]; // TO DO: Don't hard code this
 		info.mat = convert_old_material(mat);
 		closest_t = min(temp_isect.t, closest_t);
-	}
+	} */
 
 	if (grid_march(ray, mint, maxt, temp_isect)) {
 		if (temp_isect.t<closest_t)
 		{
 			info = temp_isect;
-			Material mat = materials[1]; // TO DO: Don't hard code this
-			info.mat = convert_old_material(mat);
 			closest_t = info.t;
 		}
 	}
