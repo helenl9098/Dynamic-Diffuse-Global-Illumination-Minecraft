@@ -72,6 +72,8 @@ public:
 
     struct RenderSettings
     {
+        int screen_width = 2000;
+        int screen_height = 2000;
         int max_bounces = 8;
         int aa = 1;
         uint32_t current_frame = 1;
@@ -83,7 +85,7 @@ public:
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
         int num_probes_width = 1;
         int num_probes_height = 1;
-        int sqrt_rays_per_probe = 2;
+        int sqrt_rays_per_probe = 100;
 
     } render_settings;
 
@@ -110,7 +112,7 @@ private:
     std::vector<Sphere> spheres;
     std::vector<Triangle> triangles;
     std::vector<Material> materials;
-    std::vector<ProbeRay> probes; // change to probe class / struct 
+    std::vector<ProbeRay> probe_rays;
 
     struct PreviousFrameState
     {
@@ -170,7 +172,9 @@ private:
         VK::GraphicsPipelineHandle debug_opaque_pipeline;
         VK::GraphicsPipelineHandle debug_wireframe_pipeline;
 
-        VK::Image probe_texture;
+        VK::Image probe_texture_albedo;
+        VK::Image probe_texture_normals;
+        VK::Image probe_texture_distance;
         VK::Image temporal_storage_image;
         VK::Image depth_buffer;
     };

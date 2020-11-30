@@ -106,7 +106,6 @@ int main()
     rvpt.add_sphere(Sphere(glm::vec3(5, 13.5, 10.5), 0.5f, 0));
     rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
-
     rvpt.generate_probe_rays();
 
 

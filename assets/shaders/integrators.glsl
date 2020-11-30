@@ -30,36 +30,6 @@ float random2(vec3 point) {
 	return fract(cos(dot(point.yzx, vec3(873.3, 300.86, 5023.32))) * 43.212);
 }
 
-vec3 calculateRandomDirectionInHemisphere(vec3 normal, vec3 point) {
-	float up = sqrt(random(10 * point));
-	float over = sqrt(1.0 - up * up); // sin(theta)
-    float around = random2(10 * point + normal) * TWO_PI;
-
-    // Find a direction that is not the normal based off of whether or not the
-    // normal's components are all equal to sqrt(1/3) or whether or not at
-    // least one component is less than sqrt(1/3). Learned this trick from
-    // Peter Kutz.
-
-    vec3 directionNotNormal;
-    if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
-        directionNotNormal = vec3(1.0, 0, 0);
-    } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
-        directionNotNormal = vec3(0, 1.0, 0);
-    } else {
-        directionNotNormal = vec3(0, 0, 1.0);
-    }
-
-    // Use not-normal direction to generate two perpendicular directions
-    vec3 perpendicularDirection1 =
-        normalize(cross(normal, directionNotNormal));
-    vec3 perpendicularDirection2 =
-        normalize(cross(normal, perpendicularDirection1));
-
-    return up * normal
-        + cos(around) * over * perpendicularDirection1
-        + sin(around) * over * perpendicularDirection2;
-}
-
 /*--------------------------------------------------------------------------*/
 
 vec3 integrator_binary
