@@ -92,7 +92,7 @@ public:
     struct IrradianceField
     {
         glm::ivec3 probeCounts = glm::ivec3(4, 4, 4);
-        int sideLength = 4;
+        int sideLength = 2;
         float hysteresis = 0.98f;
         int raysPerProbe = 64;
     };

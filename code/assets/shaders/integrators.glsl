@@ -47,7 +47,7 @@ vec3 integrator_binary
     Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
     Isect temp_info;
 	vec3 probePos = vec3(0);
-	vec3 tgtPos = vec3(4.5, 4.5, 4.5);
+	vec3 tgtPos = vec3(2, 2, 2);
 	ivec3 tgtBox = ivec3(floor(tgtPos / float(sideLength)));
 	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, ivec3(1), temp_info, probePos)) {
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
