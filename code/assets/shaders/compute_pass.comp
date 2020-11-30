@@ -50,8 +50,7 @@ layout(binding = 8) uniform IrradianceField
     int sideLength;
     float hysteresis;
     int raysPerProbe;
-}
-irradiance_field;
+} irradiance_field;
 
 #include "util.glsl"
 #include "camera.glsl"
@@ -106,14 +105,13 @@ vec3 trace(in Ray ray)
 vec3 eval_integrator
 
 	(int integrator_idx,
-	 Ray ray,
-     IrradianceField ir)
+	 Ray ray)
 	
 {
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF, ir);
+		return integrator_binary(ray, 0, INF, irradiance_field.probeCounts, irradiance_field.sideLength);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:
@@ -207,8 +205,8 @@ void main()
               sampled / (current_frame + 1);
 
     // S_CHNAGED: testing if data made it through
-    // imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
-    // imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
-    imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(irradiance_field.hysteresis), 0));
-    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(irradiance_field.hysteresis), 0));
+    imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
+    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
+    // imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(irradiance_field.hysteresis), 0));
+    // imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(irradiance_field.hysteresis), 0));
 }

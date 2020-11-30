@@ -84,7 +84,18 @@ public:
 
     } render_settings;
 
+    // S_CHANGE
     // irradiance field member variable
+    // had to do this because new files are not
+    // recognized after running cmake
+    // youd have to readd the existing file after every build
+    struct IrradianceField
+    {
+        glm::ivec3 probeCounts = glm::ivec3(4, 4, 4);
+        int sideLength = 4;
+        float hysteresis = 0.98f;
+        int raysPerProbe = 64;
+    };
     IrradianceField ir;
 
 private:

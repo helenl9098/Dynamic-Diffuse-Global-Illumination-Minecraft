@@ -26,7 +26,8 @@ vec3 integrator_binary
 	(Ray   ray,      /* primary ray */
 	 float mint,     /* lower bound for t */
 	 float maxt,    /* upper bound for t */
-     IrradianceField ir)     // S_CHANGE
+     ivec3 probeCounts,  // S_CHANGE
+	 int sideLength)     // S_CHANGE
 	 
 /*
 	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
@@ -57,8 +58,8 @@ vec3 integrator_binary
                 ivec3 probeIdx = boxIdx + offset;
                 // sample the probe from this index
             }
-            if (distance(boxIdx, round(boxIdx)) <= 0.3)
-                return vec3(1, 1, 0);
+            if (distance(boxIdx, round(boxIdx)) <= 0.00001)
+                return vec3(1, 0, 1);
             return info.mat.base_color; // direct lighting
         } else {
             return vec3(0);
