@@ -501,7 +501,9 @@ float opRep(in vec3 p, in vec3 c)
 
 float opRepLim( in vec3 p, in float c, in vec3 l)
 {
-    vec3 q = p-c*clamp(round(p/c),-l,l); // origin of sphere
+	// q = origin of sphere
+	// l = limits of the bounding box
+    vec3 q = p-c*clamp(round(p/c),-l,l);
     return sdSphere(q, 0.05); // probe radius here
 }
 
