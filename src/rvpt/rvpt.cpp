@@ -118,6 +118,7 @@ bool RVPT::update()
     per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
     per_frame_data[current_frame_index].triangle_buffer.copy_to(triangles);
     per_frame_data[current_frame_index].material_buffer.copy_to(materials);
+    per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
 
     if (debug_overlay_enabled)
     {
@@ -567,13 +568,19 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
     };
 
     std::vector<VkDescriptorSetLayoutBinding> probe_layout_bindings = {
-        {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // rays
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output albedo
-     //   {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output normals
-     //   {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // rays
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output albedo
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output normals
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
     };
 
     // Probe pipeline setup
@@ -644,7 +651,39 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     int probe_texture_height =
         render_settings.num_probes_height * render_settings.sqrt_rays_per_probe;
 
-    auto probe_texture = VK::Image(
+    auto probe_texture_albedo = VK::Image(
+        vk_device,
+        memory_allocator,
+        *graphics_queue,
+        "probe_texture",
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL,
+        probe_texture_width,
+        probe_texture_height,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+        VK::MemoryUsage::gpu
+    );
+
+    auto probe_texture_normals = VK::Image(
+        vk_device,
+        memory_allocator,
+        *graphics_queue,
+        "probe_texture",
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL,
+        probe_texture_width,
+        probe_texture_height,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+        VK::MemoryUsage::gpu
+    );
+
+    auto probe_texture_distance = VK::Image(
         vk_device,
         memory_allocator,
         *graphics_queue,
@@ -702,7 +741,9 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
                                     debug_pipeline_layout,
                                     opaque,
                                     wireframe,
-                                    std::move(probe_texture),
+                                    std::move(probe_texture_albedo),
+                                    std::move(probe_texture_normals),
+                                    std::move(probe_texture_distance),
                                     std::move(temporal_storage_image),
                                     std::move(depth_image)};
 }
@@ -747,7 +788,7 @@ void RVPT::add_per_frame_data(int index)
                    VK::MemoryUsage::cpu_to_gpu);
     auto probe_buffer =
         VK::Buffer(vk_device, memory_allocator, "probes_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(ProbeRay) * probes.size(),
+                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(ProbeRay) * probe_rays.size(),
                    VK::MemoryUsage::cpu_to_gpu);
 
     auto probe_command_buffer =
@@ -786,14 +827,24 @@ void RVPT::add_per_frame_data(int index)
     raytracing_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
     raytracing_descriptors.push_back(
-        std::vector{rendering_resources->probe_texture.descriptor_info()});
+        std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+    raytracing_descriptors.push_back(
+        std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
+    raytracing_descriptors.push_back(
+        std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
 
     std::vector<VK::DescriptorUseVector> probe_descriptors; // change this when you add more images
+    probe_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
     probe_descriptors.push_back(std::vector{probe_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
+    probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
                                                                       probe_descriptors);
 
@@ -913,7 +964,7 @@ void RVPT::record_compute_command_buffer()
     probe_image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     probe_image_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     probe_image_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    probe_image_barrier.image = rendering_resources->probe_texture.image.handle;
+    probe_image_barrier.image = rendering_resources->probe_texture_albedo.image.handle;
     probe_image_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     probe_image_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     probe_image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -945,7 +996,8 @@ void RVPT::record_compute_command_buffer()
         cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, rendering_resources->probe_pipeline_layout, 0,
         1, &per_frame_data[current_frame_index].probe_descriptor_sets.set, 0, 0);
 
-    vkCmdDispatch(cmd_buf, rendering_resources->probe_texture.width, rendering_resources->probe_texture.height, 1);
+    vkCmdDispatch(cmd_buf, ceil( (float) rendering_resources->probe_texture_albedo.width / 16.0f),
+                           ceil( (float) rendering_resources->probe_texture_albedo.height / 16.0f), 1);
 
 //    vkQueueWaitIdle(compute_queue->get());
 
@@ -982,12 +1034,54 @@ void RVPT::add_triangle(Triangle triangle)
     triangles.emplace_back(triangle);
 }
 
+#define PI 3.1415926
+
+void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
+{
+    float inv_sqrt = 1.f / sqrt_num_rays;
+    int num_rays = sqrt_num_rays * sqrt_num_rays;
+    output.resize(num_rays);
+
+    for (int y = 0; y < sqrt_num_rays; y++)
+    {
+        for (int x = 0; x < sqrt_num_rays; x++)
+        {
+            // First generate uniform sample
+            glm::vec2 sample(x * inv_sqrt,
+                             y * inv_sqrt);
+            
+            // Then map to a sphere
+            float z = 1 - (2 * sample.x);
+            glm::vec3 sphere_sample(cosf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)),
+                                    sinf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)), z);
+            
+            int i = y * sqrt_num_rays + x;
+            output[i] = sphere_sample;
+        }
+    }
+}
+
 void RVPT::generate_probe_rays()
 {
-    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
-    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
-    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
-    probes.emplace_back(ProbeRay(glm::vec3(0), glm::vec3(1, 0, 0)));
+    // Need to integrate this with the probe class (should it exist)
+    std::vector<glm::vec3> probes;
+    probes.emplace_back(glm::vec3(1.5, 0.5, 0));
+    
+    for (int p_index = 0; p_index < probes.size(); p_index++)
+    {
+        std::vector<glm::vec3> samples;
+        generate_samples(samples, render_settings.sqrt_rays_per_probe);
+
+        for (int l_index = 0; l_index < samples.size(); l_index++)
+        {
+            glm::vec3 p = probes[p_index];
+            probe_rays.emplace_back(ProbeRay(p,
+                                             glm::normalize(samples[l_index] - p),
+                                             p_index,
+                                             l_index));
+        }
+    }
+    
 }
 
 void RVPT::get_asset_path(std::string& asset_path)
