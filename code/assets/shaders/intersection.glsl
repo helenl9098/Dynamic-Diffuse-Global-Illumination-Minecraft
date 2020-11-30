@@ -499,27 +499,31 @@ float opRep(in vec3 p, in vec3 c)
 }
 
 
-float opRepLim( in vec3 p, in float c, in vec3 l, ivec3 tgtBox, out bool inTgtBox)
+float opRepLim( in vec3 p, in float c, in vec3 l, ivec3 tgtBox, out bool inTgtBox, out vec3 probePos)
 {
 	// q = origin of sphere
 	// l = limits of the bounding box
 	// c = im assuming that this is the spacing between probes
 	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
+	probePos = probeOrigin;
 	// loop through the 8 probes defining the tgtBox and check if any is equal to the closest probe
 	for (int i = 0; i < 8; i++) {
 		ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
-		ivec3 testProbePos = ivec3(round((tgtBox + offset) * c));
-		if (length(probeOrigin - testProbePos) < 0.0001) {
+		offset = ivec3(0);
+		ivec3 testProbePos = ivec3(round((ivec3(0) + offset) * c));
+		testProbePos = ivec3(0);
+		if (probeOrigin == vec3(1)) {
 			inTgtBox = true;
+			break;
 		}
 	}
     vec3 q = p-probeOrigin;
     return sdSphere(q, 0.05); // probe radius here
 }
 
-float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, ivec3 tgtBox, out bool inTgtBox) {
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, ivec3 tgtBox, out bool inTgtBox, out vec3 probePos) {
 	// return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
-	return opRepLim(point, sideLength, vec3(probeCount / 2), tgtBox, inTgtBox);
+	return opRepLim(point, sideLength, vec3(probeCount / 2), tgtBox, inTgtBox, probePos);
 }
 
 // NOTE: i need to change this function
@@ -544,7 +548,7 @@ vec3 estimateNormal(vec3 pos) {
 
 
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, ivec3 tgtBox, out Isect info) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, ivec3 tgtBox, out Isect info, out vec3 probePos) {
 
 // start of signed distance
 	vec3 ray_origin = ray.origin;
@@ -559,7 +563,7 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 		// current point along the ray
 		vec3 point = ray_origin + curr_t * ray_dir;
 		bool inTgtBox = false;
-		float dist = sceneSDF(point, probeCount, sideLength, tgtBox, inTgtBox);
+		float dist = sceneSDF(point, probeCount, sideLength, tgtBox, inTgtBox, probePos);
 		
 		if (dist < 0.001) {
 			info.t = curr_t;
@@ -810,7 +814,8 @@ bool intersect_probes (
 	 ivec3 probeCount,
 	 float sideLength,
 	 ivec3 tgtBox,
-	 out Isect info) /* intersection data */ 
+	 out Isect info,	/* intersection data */ 
+	 out vec3 probePos)
 {
 	float closest_t = INF;
 	info.t = closest_t;
@@ -818,7 +823,7 @@ bool intersect_probes (
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, tgtBox, temp_isect)) {
+	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, tgtBox, temp_isect, probePos)) {
 		info = temp_isect;
 		closest_t = info.t;
 
