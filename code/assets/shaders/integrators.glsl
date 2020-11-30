@@ -58,8 +58,28 @@ vec3 integrator_binary
                 ivec3 probeIdx = boxIdx + offset;
                 // sample the probe from this index
             }
-            if (distance(boxIdx, round(boxIdx)) <= 0.00001)
-                return vec3(1, 0, 1);
+			
+			vec3 rdIdx = vec3(0);
+			if (info.pos.x < 0.5) {
+				rdIdx.x = floor(info.pos.x);
+			} else {
+				rdIdx.x = ceil(info.pos.x);
+			}
+			if (info.pos.y < 0.5) {
+				rdIdx.y = floor(info.pos.y);
+			} else {
+				rdIdx.y = ceil(info.pos.y);
+			}
+			if (info.pos.z < 0.5) {
+				rdIdx.z = floor(info.pos.z);
+			} else {
+				rdIdx.z = ceil(info.pos.z);
+			}
+			
+            if (length(info.pos - rdIdx) <= 0.9f) {
+				return vec3(1, 0, 1);
+			}
+			
             return info.mat.base_color; // direct lighting
         } else {
             return vec3(0);
