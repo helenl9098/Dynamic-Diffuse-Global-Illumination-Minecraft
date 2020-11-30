@@ -501,6 +501,31 @@ bool intersect_scene
 		}
 		closest_t = min(temp_isect.t, closest_t);
 	}
+	
+	for (int k = 0; k < 4; k++) {
+		for (int j = 0; j < 4; j++) {
+			for (int i = 0; i < 4; i++) {
+				vec3 origin = vec3(i, j, k);
+				float radius = 0.1f;
+				/* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
+				Ray temp_ray;
+				temp_ray.origin = (ray.origin - origin) / radius;
+				temp_ray.direction = ray.direction / radius;
+				
+				intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+				if (temp_isect.t<closest_t)
+				{
+					info = temp_isect;
+					Material mat;
+					mat.albedo = vec4(1, 0, 1, 0);
+					mat.emission = vec4(0);
+					mat.data = vec4(0);
+					info.mat = convert_old_material(mat);
+				}
+				closest_t = min(temp_isect.t, closest_t);
+			}
+		}
+	}
 
 	/* intersect triangles */
 	for (int i = 0; i < triangles.length(); i++)

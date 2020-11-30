@@ -76,7 +76,7 @@ vec3 integrator_binary
 				rdIdx.z = ceil(info.pos.z);
 			}
 			
-            if (length(info.pos - rdIdx) <= 0.9f) {
+            if (length(info.pos - rdIdx) <= 0.7f) {
 				return vec3(1, 0, 1);
 			}
 			
