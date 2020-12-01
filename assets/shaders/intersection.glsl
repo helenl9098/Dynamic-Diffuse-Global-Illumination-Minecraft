@@ -459,6 +459,246 @@ bool intersect_scene_any
 	
 } /* intersect_scene_any */
 
+
+float sdBox(vec3 p, vec3 b)
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+}
+
+float sdSphere(vec3 p, float s)
+{
+  return length(p)-s;
+}
+
+bool getVoxel(vec3 c) {
+	vec3 p = c + vec3(0.5);
+	float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
+	return d < 0.0;
+}
+
+float opUnion( float d1, float d2 ) {  return min(d1,d2); }
+float opSubtraction( float d1, float d2 ) { return max(-d1,d2); }
+ 
+float opRep(in vec3 p, in vec3 c)
+{
+    vec3 q = mod(p+0.5*c,c)-0.5*c;
+    return sdSphere(q, 0.05);
+}
+
+
+float opRepLim( in vec3 p, in float c, in vec3 l)
+{
+    vec3 q = p-c*clamp(round(p/c),-l,l);
+    return sdSphere(q, 0.05); // probe radius here
+}
+
+float sceneSDF(vec3 point) {
+
+	return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
+}
+
+vec3 estimateNormal(vec3 pos) {
+
+    float epsilon = 0.0001;
+    vec3 normal = vec3(0);
+
+    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z))
+              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z));
+    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z))
+              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z));
+    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon))
+              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon));
+
+    return normalize(normal);
+}
+
+
+// this is what ray traces the probes
+bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
+
+// start of signed distance
+	vec3 ray_origin = ray.origin;
+	vec3 curr_cell = vec3(floor(ray.origin));
+	vec3 ray_dir = normalize(ray.direction); 
+
+	float curr_t = 0.f;
+	bool isec = false;
+	while (curr_t < (100)) {
+
+		vec3 point = ray_origin + curr_t * ray_dir;
+		float dist = sceneSDF(point);
+
+		if (dist < 0.001) {
+			info.t = curr_t;
+            info.normal = estimateNormal(point);
+           	return true;
+		}
+		curr_t += dist;
+	}
+	return false;
+//end of signed distance
+
+}
+
+float cave_sdf(vec3 coords) {
+	float sdf = sdSphere(coords, 10.0);
+	return opUnion(sdf, sdSphere(coords + vec3(2, 2, 2), 5.0));
+}
+
+float random1( vec3 p ) {
+    return fract(sin((dot(p, vec3(127.1,
+                                  311.7,
+                                  191.999)))) *         
+                 43758.5453);
+}
+
+float noise2D( vec2 p ) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) *
+                 43758.5453);
+}
+
+
+float interpNoise2D(float x, float y) {
+    int intX = int(floor(x));
+    float fractX = fract(x);
+    int intY = int(floor(y));
+    float fractY = fract(y);
+
+    float v1 = noise2D(vec2(intX, intY));
+    float v2 = noise2D(vec2(intX + 1, intY));
+    float v3 = noise2D(vec2(intX, intY + 1));
+    float v4 = noise2D(vec2(intX + 1, intY + 1));
+
+    float i1 = mix(v1, v2, fractX);
+    float i2 = mix(v3, v4, fractX);
+    return mix(i1, i2, fractY);
+}
+
+
+float fbm(float x, float y) {
+    float total = 0;
+    float persistence = 0.5;
+    int octaves = 8;
+
+    for(int i = 1; i <= octaves; i++) {
+        float freq = pow(2.f, i);
+        float amp = pow(persistence, i);
+
+        total += interpNoise2D(x * freq,
+                               y * freq) * amp;
+    }
+    return total;
+}
+
+
+bool getBlockAt(vec3 coords) {
+
+	// TO DO: STUB FOR Now
+	if (coords.y > 17.0) {
+		return false;
+	}
+	if (coords.y < -15) {
+		float r = fbm(coords.x * 0.1, coords.z * 0.1);
+		int d = int(floor(r * 4.0));
+		if (-19 + d >= coords.y) {
+			return true;
+		}
+	}
+	if (sdSphere(coords, 20.0) > 0.0) {
+		if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
+			if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
+				if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
+					if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
+						if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
+								return true;
+						}
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
+vec4 getColorAt(vec3 p) {
+	float r = (random1(p) / 4) + 0.1; // range of 0.3 to 0.8
+	//r = floor(r * 10.0) / 10.0;
+	return vec4(0.1, r, r, 1);
+}
+
+// marches along ray and checks for blocks at locations
+// changed from code given in CIS460
+bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
+	vec3 ray_origin = ray.origin;
+	vec3 curr_cell = vec3(floor(ray.origin));
+	vec3 ray_dir = normalize(ray.direction);
+
+	vec3 t2;
+	float curr_t = 0.0;
+	for (int i = 0; i < 200; i++) {
+	    // calculate distance to voxel boundary
+        t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
+        // go to next voxel
+        curr_t += (min(min(t2.x, t2.y), t2.z) + 0.0001);
+        ray_origin = ray.origin + ray_dir * curr_t;
+        // get voxel's center
+        vec3 pi = ceil(ray_origin) - 0.5;
+
+        if (getBlockAt(ceil(ray_origin))) {
+        	info.t = curr_t;
+
+        	Material mat = materials[1]; // TO DO: Don't hard code this
+        	mat.albedo = getColorAt(ceil(ray_origin));
+			info.mat = convert_old_material(mat);
+
+			// normal calculation
+        	vec3 diff = normalize(ray_origin - pi);
+        	vec3 normal = vec3(0, 0, 0);
+        	float max = 0.0;
+        	for (int i = 0; i < 3; i++) {
+        		if (abs(diff[i]) > max) {
+        			max = abs(diff[i]);
+        			normal = vec3(0);
+        			normal[i] = sign(diff[i]) * 1; 
+        		}
+        	}
+
+        	info.normal = normal;
+        	return true;
+        }
+    }
+
+	return false;
+}
+
+
+bool intersect_probes (
+	 Ray  ray,  /* ray for the intersection */
+	 float     mint, /* lower bound for t */
+	 float     maxt, /* upper bound for t */
+	 out Isect info) /* intersection data */ 
+{
+	float closest_t = INF;
+	info.t = closest_t;
+	info.pos = vec3(0);
+	info.normal = vec3(0);
+	Isect temp_isect;
+
+	if (implicit_surface(ray, mint, maxt, temp_isect)) {
+		info = temp_isect;
+		closest_t = info.t;
+
+		info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
+					
+		info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
+
+		info.pos += 0.001 * info.normal;
+	
+		return true;
+	}
+	return false;
+}
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene
@@ -480,16 +720,16 @@ bool intersect_scene
 	{
 		Sphere sphere = spheres[i];
 		
-		/* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
+		// inverse transform on the ray, needs to be changed to 3x3/4x4 mat 
 		Ray temp_ray;
 		temp_ray.origin = (ray.origin - sphere.origin) / sphere.radius;
 		temp_ray.direction = ray.direction / sphere.radius;
 		
-        /*
-            g(x) = 0, x \in S
-            M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
+        
+        //    g(x) = 0, x \in S
+        //    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
             
-        */
+    
         
 		//intersect_sphere(temp_ray, mint, closest_t, temp_isect);
         intersect_sphere(temp_ray, mint, closest_t, temp_isect);
@@ -503,6 +743,7 @@ bool intersect_scene
 	}
 
 	/* intersect triangles */
+	/*
 	for (int i = 0; i < triangles.length(); i++)
 	{
 		Triangle triangle = triangles[i];
@@ -521,20 +762,34 @@ bool intersect_scene
 		}
 		closest_t = min(temp_isect.t, closest_t);
 	}
+	*/
 
 	// CHANGED: added floor
+	/*
 	intersect_plane(ray, -0.5, vec3(0, 1, 0), mint, maxt, temp_isect);
 	if (temp_isect.t<closest_t)
 	{
 		info = temp_isect;
 		Material mat = materials[2]; // TO DO: Don't hard code this
 		info.mat = convert_old_material(mat);
+		closest_t = min(temp_isect.t, closest_t);
+	} */
+
+	if (grid_march(ray, mint, maxt, temp_isect)) {
+		if (temp_isect.t<closest_t)
+		{
+			info = temp_isect;
+			closest_t = info.t;
+		}
 	}
-	closest_t = min(temp_isect.t, closest_t);
+
+	//closest_t = min(temp_isect.t, closest_t);
 	
 	info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
 					
 	info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
+
+	info.pos += 0.001 * info.normal;
 	
 	return closest_t<INF;
 	
