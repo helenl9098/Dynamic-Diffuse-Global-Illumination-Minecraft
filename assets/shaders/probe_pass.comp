@@ -135,7 +135,7 @@ vec3 map_to_unit_hemisphere_around_normal
 
 void main() {
 	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	int index = 2 * pixel_coords.y + pixel_coords.x;
+	int index = render_settings.sqrt_rays_per_probe * pixel_coords.y + pixel_coords.x;
 
 	int num_rays_per_probe = render_settings.sqrt_rays_per_probe
 								* render_settings.sqrt_rays_per_probe;
@@ -175,7 +175,3 @@ void main() {
 	imageStore(result_distances, pixel_coords, vec4(distances, 0.0, 0.0));
 	
 }
-
-// TODO: MAKE THIS WORK! ACTUALLY GENERATE RAYS
-
-// need to do 3d math to understand how to 

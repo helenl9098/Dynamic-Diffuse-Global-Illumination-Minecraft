@@ -1069,16 +1069,16 @@ void RVPT::generate_probe_rays()
     
     for (int p_index = 0; p_index < probes.size(); p_index++)
     {
+        glm::vec3 p = probes[p_index];
+
         std::vector<glm::vec3> samples;
         generate_samples(samples, render_settings.sqrt_rays_per_probe);
 
-        for (int l_index = 0; l_index < samples.size(); l_index++)
+        for (int i = 0; i < samples.size(); i++)
         {
-            glm::vec3 p = probes[p_index];
             probe_rays.emplace_back(ProbeRay(p,
-                                             glm::normalize(samples[l_index] - p),
-                                             p_index,
-                                             l_index));
+                                             glm::normalize(samples[i] - p),
+                                             p_index));
         }
     }
     
