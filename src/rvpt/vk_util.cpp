@@ -1296,5 +1296,21 @@ VkFormat get_depth_image_format(VkPhysicalDevice phys_device)
     }
     return VK_FORMAT_UNDEFINED;
 }
+//
+//void Texture::updateDescriptor() {
+//    descriptor.sampler = sampler;
+//    descriptor.imageView = view;
+//    descriptor.imageLayout = imageLayout;
+//}
+//
+//void Texture::destroy() {
+//    vkDestroyImageView(device, view, nullptr);
+//    vkDestroyImage(device, image, nullptr);
+//    if (sampler)
+//    {
+//        vkDestroySampler(device, sampler, nullptr);
+//    }
+//    vkFreeMemory(device, deviceMemory, nullptr);
+//}
 
 }  // namespace VK
