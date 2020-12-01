@@ -24,7 +24,6 @@ struct ProbeRay
     vec3 origin;
     vec3 direction;
     int probe_index;
-    int local_index;
 };
 
 struct Material
