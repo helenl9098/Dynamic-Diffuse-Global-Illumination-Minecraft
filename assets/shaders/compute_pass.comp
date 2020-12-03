@@ -14,6 +14,8 @@
 layout(local_size_x = 16, local_size_y = 16) in;
 layout(binding = 0) uniform RenderSettings
 {
+    int screen_width;
+    int screen_height;
     int max_bounces;
     int aa;
     uint current_frame;
@@ -23,6 +25,9 @@ layout(binding = 0) uniform RenderSettings
     int bottom_left_render_mode;
     int bottom_right_render_mode;
     vec2 split_ratio;
+    int num_probes_width;
+    int num_probes_height;
+    int sqrt_rays_per_probe;
 }
 render_settings;
 layout(binding = 1, rgba8) uniform writeonly image2D result_image;
@@ -40,6 +45,10 @@ uint iframe = render_settings.current_frame;
 layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
 layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
 layout(std430, binding = 7) buffer Materials { Material materials[]; };
+
+layout(binding = 8, rgba8) uniform readonly image2D probe_image_albedo;
+layout(binding = 9, rgba8) uniform readonly image2D probe_image_normals;
+layout(binding = 10, rgba8) uniform readonly image2D probe_image_distances;
 
 #include "util.glsl"
 #include "camera.glsl"
@@ -142,6 +151,15 @@ Ray get_camera_ray
 	}
 }
 
+ivec2 get_probe_image_coords(vec2 original) {
+    int probe_texture_width  = render_settings.num_probes_width
+                                * render_settings.sqrt_rays_per_probe;
+    int probe_texture_height = render_settings.num_probes_height
+                                * render_settings.sqrt_rays_per_probe;
+
+    return ivec2(int(original.x * probe_texture_width / render_settings.screen_width),
+                 int(original.y * probe_texture_height / render_settings.screen_height));
+}
 
 void main()
 {
@@ -193,7 +211,6 @@ void main()
     vec3 probe = imageLoad(probe_image_albedo, coords).xyz;
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
-
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
     imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
 }

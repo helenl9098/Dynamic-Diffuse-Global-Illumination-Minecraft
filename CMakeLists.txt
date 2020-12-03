@@ -20,9 +20,12 @@ set (header_files
     src/rvpt/window.h
     src/rvpt/vk_util.h
     src/rvpt/imgui_impl.h
+    src/rvpt/imgui_helpers.h
     src/rvpt/camera.h
     src/rvpt/timer.h
-    src/rvpt/geometry.h)
+    src/rvpt/geometry.h
+    src/rvpt/material.h
+    src/rvpt/probe.h)
 
 set (shader_files
     assets/shaders/camera.glsl
@@ -33,7 +36,10 @@ set (shader_files
     assets/shaders/fullscreen_tri.vert
     assets/shaders/integrators.glsl
     assets/shaders/intersection.glsl
+    assets/shaders/lightfieldprobe.glsl
     assets/shaders/material.glsl
+    assets/shaders/octahedral.glsl
+    assets/shaders/probe_pass.comp
     assets/shaders/samples_mapping.glsl
     assets/shaders/structs.glsl
     assets/shaders/tex_sample.frag

@@ -152,7 +152,7 @@ void main() {
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
-		
+
 		/*Ray light_feeler;
 		light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
 		light_feeler.direction = normalize(spheres[0].radius - light_feeler.origin);

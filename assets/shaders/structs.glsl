@@ -19,6 +19,13 @@ struct Ray
     vec3 direction;
 };
 
+struct ProbeRay
+{
+    vec3 origin;
+    vec3 direction;
+    int probe_index;
+};
+
 struct Material
 {
     vec4 albedo;
