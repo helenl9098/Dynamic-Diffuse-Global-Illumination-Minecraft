@@ -50,6 +50,16 @@ layout(binding = 8, rgba8) uniform readonly image2D probe_image_albedo;
 layout(binding = 9, rgba8) uniform readonly image2D probe_image_normals;
 layout(binding = 10, rgba8) uniform readonly image2D probe_image_distances;
 
+layout(binding = 11) uniform IrradianceField
+{
+    ivec3 probeCounts;
+    int sideLength;
+    float hysteresis;
+    int raysPerProbe;
+} irradiance_field;
+
+
+
 #include "util.glsl"
 #include "camera.glsl"
 #include "samples_mapping.glsl"
@@ -108,7 +118,7 @@ vec3 eval_integrator
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF);
+		return integrator_binary(ray, 0, INF, irradiance_field.probeCounts, irradiance_field.sideLength);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:

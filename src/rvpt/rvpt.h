@@ -89,6 +89,20 @@ public:
         int num_probes_height = 1;
         int sqrt_rays_per_probe = 100;
     } render_settings;
+	
+	// S_CHANGE
+    // irradiance field member variable
+    // had to do this because new files are not
+    // recognized after running cmake
+    // youd have to readd the existing file after every build
+    struct IrradianceField
+    {
+        glm::ivec3 probeCounts = glm::ivec3(4, 4, 4);
+        int sideLength = 2;
+        float hysteresis = 0.98f;
+        int raysPerProbe = 64;
+    };
+    IrradianceField ir;
 
 private:
     bool show_imgui = true;
@@ -195,6 +209,7 @@ private:
         VK::Buffer probe_buffer;
         VK::CommandBuffer probe_command_buffer;
         VK::Fence probe_work_fence;
+		VK::Buffer irradiance_field_uniform;  // S_CHANGED
         VK::CommandBuffer raytrace_command_buffer;
         VK::Fence raytrace_work_fence;
         VK::DescriptorSet image_descriptor_set;

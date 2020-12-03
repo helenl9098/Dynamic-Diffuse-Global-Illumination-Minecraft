@@ -34,9 +34,11 @@ float random2(vec3 point) {
 
 vec3 integrator_binary
 
-	(Ray   ray,      /* primary ray */
-	 float mint,     /* lower bound for t */
-	 float maxt)     /* upper bound for t */
+	(Ray   ray,     /* primary ray */
+	 float mint,    /* lower bound for t */
+	 float maxt,	/* upper bound for t */
+	 ivec3 probeCounts,
+	 int sideLength)
 	 
 /*
 	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
@@ -51,12 +53,27 @@ vec3 integrator_binary
         return col;
 
     Isect temp_info;
-    /* Probes visualization here
-    if (intersect_probes(ray, mint, maxt, temp_info)) {
+	
+	// Probes visualization here
+	/*
+    vec3 probePos = vec3(0);
+	vec3 tgtPos = vec3(2, 2, 2);
+	ivec3 tgtBox = ivec3(floor(tgtPos / float(sideLength)));
+	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info, probePos)) {
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
+			for (int i = 0; i < 8; i++) {
+				ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+				ivec3 testProbePos = ivec3(round((tgtBox + offset) * sideLength));
+				if (distance(probePos, testProbePos) <= 0.001) {
+					return vec3(1, 0, 1);
+					break;
+				}
+			}
             return vec3(1, 1, 0); // probe color here
         }
-    } */
+    }
+	*/
+	
     // CHANGED: direct lighting
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(0/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
