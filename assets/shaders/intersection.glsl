@@ -481,35 +481,39 @@ float opRep(in vec3 p, in vec3 c)
 }
 
 
-float opRepLim( in vec3 p, in float c, in vec3 l)
+float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
-    vec3 q = p-c*clamp(round(p/c),-l,l);
+	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
+	probePos = probeOrigin;
+	
+    vec3 q = p-probeOrigin;
     return sdSphere(q, 0.05); // probe radius here
 }
 
-float sceneSDF(vec3 point) {
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos) {
 
-	return opRepLim(point, 1.0, vec3(10, 10, 10)); // how many in each direction (right now it's 20 * 20 * 20)
+	return opRepLim(point, sideLength, vec3(probeCount / 2), probePos);
 }
 
-vec3 estimateNormal(vec3 pos) {
+vec3 estimateNormal(vec3 pos, ivec3 probeCount, float sideLength) {
 
     float epsilon = 0.0001;
     vec3 normal = vec3(0);
 
-    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z))
-              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z));
-    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z))
-              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z));
-    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon))
-              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon));
+	vec3 temp = vec3(0);
+    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z), probeCount, sideLength, temp)
+              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z), probeCount, sideLength, temp);
+    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z), probeCount, sideLength, temp)
+              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z), probeCount, sideLength, temp);
+    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon), probeCount, sideLength, temp)
+              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon), probeCount, sideLength, temp);
 
     return normalize(normal);
 }
 
 
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, out Isect info, out vec3 probePos) {
 
 // start of signed distance
 	vec3 ray_origin = ray.origin;
@@ -521,11 +525,11 @@ bool implicit_surface(Ray ray, float mint, float maxt, out Isect info) {
 	while (curr_t < (100)) {
 
 		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point);
+		float dist = sceneSDF(point, probeCount, sideLength, probePos);
 
 		if (dist < 0.001) {
 			info.t = curr_t;
-            info.normal = estimateNormal(point);
+            info.normal = estimateNormal(point, probeCount, sideLength);
            	return true;
 		}
 		curr_t += dist;
@@ -774,7 +778,11 @@ bool intersect_probes (
 	 Ray  ray,  /* ray for the intersection */
 	 float     mint, /* lower bound for t */
 	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */ 
+	 ivec3 probeCount,
+	 float sideLength,
+	 out Isect info, /* intersection data */ 
+	 out vec3 probePos
+	 )
 {
 	float closest_t = INF;
 	info.t = closest_t;
@@ -782,7 +790,7 @@ bool intersect_probes (
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, temp_isect)) {
+	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect, probePos)) {
 		info = temp_isect;
 		closest_t = info.t;
 

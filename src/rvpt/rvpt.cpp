@@ -119,6 +119,12 @@ bool RVPT::update()
     per_frame_data[current_frame_index].triangle_buffer.copy_to(triangles);
     per_frame_data[current_frame_index].material_buffer.copy_to(materials);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
+	
+	// S_CHANGED
+    // also make sure to update irradiance field here
+    // similar to random numbers
+    per_frame_data[current_frame_index].irradiance_field_uniform.copy_to(ir);
+	
 
     if (debug_overlay_enabled)
     {
@@ -570,6 +576,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // S_CHANGED: for irradiance field info
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -805,6 +812,11 @@ void RVPT::add_per_frame_data(int index)
                           "probe_command_buffer_" + std::to_string(index));
     auto probe_work_fence = VK::Fence(vk_device, "probe_work_fence_" + std::to_string(index));
 
+	// S_CHANGED
+    auto irradiance_field_uniform = VK::Buffer(
+        vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(IrradianceField), VK::MemoryUsage::cpu_to_gpu);
+
     auto raytrace_command_buffer =
         VK::CommandBuffer(vk_device, compute_queue.has_value() ? *compute_queue : *graphics_queue,
                           "raytrace_command_buffer_" + std::to_string(index));
@@ -835,12 +847,15 @@ void RVPT::add_per_frame_data(int index)
     raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
+	
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
+    // S_CHANGED
+    raytracing_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
@@ -879,6 +894,7 @@ void RVPT::add_per_frame_data(int index)
         std::move(camera_uniform), std::move(sphere_buffer), std::move(triangle_buffer),
         std::move(material_buffer), std::move(probe_buffer),
         std::move(probe_command_buffer), std::move(probe_work_fence),
+		std::move(irradiance_field_uniform),
         std::move(raytrace_command_buffer), std::move(raytrace_work_fence),
         image_descriptor_set, raytracing_descriptor_set, probe_descriptor_set,
         std::move(debug_camera_uniform), std::move(debug_vertex_buffer), debug_descriptor_set});
