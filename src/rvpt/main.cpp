@@ -101,9 +101,9 @@ int main()
     load_model(rvpt, "models/cube.obj", 1);
 
     // Setup Demo Scene
-    rvpt.add_material(Material(glm::vec4(0, 0, 1, 0), glm::vec4(10.0, 50.0, 50.0, 0),
+    rvpt.add_material(Material(glm::vec4(1, 1, 0, 0), glm::vec4(10.0, 50.0, 50.0, 0),
                                Material::Type::LAMBERT));
-    rvpt.add_sphere(Sphere(glm::vec3(5, 13.5, 10.5), 0.5f, 0));
+    rvpt.add_sphere(Sphere(glm::vec3(0, 0, 0), 0.f, 0));
     rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
     rvpt.generate_probe_rays();

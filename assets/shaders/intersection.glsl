@@ -68,7 +68,7 @@ struct Isect
 	vec3  normal; /* normal in global coordinates */
 	vec2  uv;     /* surface parametrization (for textures) */
 	Material_new mat;
-	
+	int type; 
 }; /* Isect */
 
 /*--------------------------------------------------------------------------*/
@@ -471,12 +471,6 @@ float sdSphere(vec3 p, float s)
   return length(p)-s;
 }
 
-bool getVoxel(vec3 c) {
-	vec3 p = c + vec3(0.5);
-	float d = min(max(-sdSphere(p, 7.5), sdBox(p, vec3(6.0))), -sdSphere(p, 25.0));
-	return d < 0.0;
-}
-
 float opUnion( float d1, float d2 ) {  return min(d1,d2); }
 float opSubtraction( float d1, float d2 ) { return max(-d1,d2); }
  
@@ -592,44 +586,145 @@ float fbm(float x, float y) {
 }
 
 
-bool getBlockAt(vec3 coords) {
+int getBlockAt(vec3 coords, int scene) {
+
+	/* BLOCK TYPE KEY: 
+	0: EMPTY
+	1: NOISE
+	2: RED
+	3. GREEN
+	4. BLUE
+	5. WHITE
+	*/
 
 	// TO DO: STUB FOR Now
-	if (coords.y > 17.0) {
-		return false;
-	}
-	if (coords.y < -15) {
-		float r = fbm(coords.x * 0.1, coords.z * 0.1);
-		int d = int(floor(r * 4.0));
-		if (-19 + d >= coords.y) {
-			return true;
+
+	if (scene == 0) {// THIS IS THE CAVE
+		if (coords.y > 17.0) {
+			return 0;
 		}
-	}
-	if (sdSphere(coords, 20.0) > 0.0) {
-		if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
-			if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
-				if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
-					if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
-						if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
-								return true;
+		if (coords.y < -15) {
+			float r = fbm(coords.x * 0.1, coords.z * 0.1);
+			int d = int(floor(r * 4.0));
+			if (-19 + d >= coords.y) {
+				return 1;
+			}
+		}
+		if (sdSphere(coords, 20.0) > 0.0) {
+			if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
+				if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
+					if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
+						if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
+							if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
+									return 1;
+							}
 						}
 					}
 				}
 			}
 		}
 	}
-	return false;
+
+	else if (scene == 1) { // CORNELL BOX SCENE
+		// x walls (left )
+		if (coords.x == -10) {
+			if (abs(coords.y) < 10 && abs(coords.z - 15) < 10) {
+				return 2;
+			} 
+		}
+	     // x walls ( right)
+		if (coords.x == 10) {
+			if (abs(coords.y) < 10 && abs(coords.z - 15) < 10) {
+				return 3;
+			} 
+		}
+		// y walls (ceiling floor)
+		if (abs(coords.y) == 10) {
+			if (abs(coords.x) < 10 && abs(coords.z - 15) < 10) {
+				return 5;
+			} 
+		}
+		// z wall (back)
+		if (coords.z == 25) {
+			if (abs(coords.x) < 10 && abs(coords.y) < 10) {
+				return 5;
+			} 
+		}
+
+		if (abs(coords.x + 4) < 3 && abs(coords.y + 7) < 3 && abs(coords.z -13) < 3) {
+				return 4;
+		}
+
+		if (abs(coords.x - 3) < 3 && abs(coords.y + 4) < 6 && abs(coords.z -16) < 3) {
+				return 4;
+		} 
+	}
+
+	else if (scene == 2) { // HOUSE SCENE
+		if (coords.y == -5) {
+			return 1;
+		}
+		if (abs(coords.x) == 25) {
+			if (abs(coords.y) < 5 && abs(coords.z) < 15) {
+				return 2;
+			}
+		}
+		if (coords.y == 5) {
+			if (abs(coords.x) < 25 && abs(coords.z) < 15) {
+				return 5;
+			} 
+		}
+		if (coords.z == -15) {
+			if (abs(coords.x) < 25 && abs(coords.y) < 5) {
+				return 3;
+			} 
+		}
+		if (coords.z == 15) {
+			if (abs(coords.x - 10) < 2 && abs(coords.y + 1) < 4) {
+				return 0;
+			}
+			if (abs(coords.x) < 25 && abs(coords.y) < 5) {
+				return 3;
+			} 
+		}
+	}
+	else {
+		return 0;
+	}
+	
+	return 0;
 }
 
-vec4 getColorAt(vec3 p) {
-	float r = (random1(p) / 4) + 0.1; // range of 0.3 to 0.8
-	//r = floor(r * 10.0) / 10.0;
-	return vec4(0.1, r, r, 1);
+vec4 getColorAt(vec3 p, int block_type) {
+	/* BLOCK TYPE KEY: 
+	0: EMPTY
+	1: NOISE
+	2: RED
+	3. GREEN
+	4. BLUE
+	5. WHITE
+	*/
+ 	if (block_type == 1) {
+		float r = (random1(p) / 4) + 0.1; // range of 0.3 to 0.8
+		return vec4(0.1, r, r, 1);
+	}
+	else if (block_type == 2) {
+		return vec4(1, 0, 0, 1);
+	}
+	else if (block_type == 3) {
+		return vec4(0, 1, 0, 1);
+	}
+	else if (block_type == 4) {
+		return vec4(0, 0, 1, 1);
+	}
+	else if (block_type == 5) {
+		return vec4(1, 1, 1, 1);
+	}
 }
 
 // marches along ray and checks for blocks at locations
 // changed from code given in CIS460
-bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
+bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
 	vec3 ray_origin = ray.origin;
 	vec3 curr_cell = vec3(floor(ray.origin));
 	vec3 ray_dir = normalize(ray.direction);
@@ -640,16 +735,18 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info) {
 	    // calculate distance to voxel boundary
         t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
         // go to next voxel
-        curr_t += (min(min(t2.x, t2.y), t2.z) + 0.0001);
+        float min_val = min(min(t2.x, t2.y), t2.z) + 0.0001;
+        curr_t += min_val;
         ray_origin = ray.origin + ray_dir * curr_t;
         // get voxel's center
         vec3 pi = ceil(ray_origin) - 0.5;
 
-        if (getBlockAt(ceil(ray_origin))) {
+        int block_type = getBlockAt(ceil(ray_origin), scene);
+        if (block_type > 0) {
         	info.t = curr_t;
 
         	Material mat = materials[1]; // TO DO: Don't hard code this
-        	mat.albedo = getColorAt(ceil(ray_origin));
+        	mat.albedo = getColorAt(ceil(ray_origin), block_type);
 			info.mat = convert_old_material(mat);
 
 			// normal calculation
@@ -699,6 +796,21 @@ bool intersect_probes (
 	}
 	return false;
 }
+
+vec3 get_light_pos_in_scene(int scene) {
+	vec3 light_pos = vec3(0);
+	if (scene == 0) {
+		light_pos = vec3(4, 17.5, 8.5) + spheres[0].origin;
+	}
+	if (scene == 1) {
+		light_pos = vec3(0, 8, 13);
+	}
+	if (scene == 2) {
+		light_pos = vec3(5, 9.3, 36.5);
+	}
+	return light_pos;
+}
+
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene
@@ -706,9 +818,11 @@ bool intersect_scene
 	(Ray       ray,  /* ray for the intersection */
 	 float     mint, /* lower bound for t */
 	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
+	 out Isect info /* intersection data */
+	 )
 	 
 {
+	int scene = 0; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
 	float closest_t = INF;
 	info.t = closest_t;
 	info.pos = vec3(0);
@@ -716,31 +830,32 @@ bool intersect_scene
 	Isect temp_isect;
 
 	/* intersect spheres */
-	for (int i = 0; i < spheres.length(); i++)
-	{
-		Sphere sphere = spheres[i];
+	//for (int i = 0; i < spheres.length(); i++)
+	//{
+		//Sphere sphere = spheres[i];
 		
 		// inverse transform on the ray, needs to be changed to 3x3/4x4 mat 
 		Ray temp_ray;
-		temp_ray.origin = (ray.origin - sphere.origin) / sphere.radius;
-		temp_ray.direction = ray.direction / sphere.radius;
+		temp_ray.origin = (ray.origin - get_light_pos_in_scene(scene)) / 0.5;
+		temp_ray.direction = ray.direction / 0.5;
 		
         
         //    g(x) = 0, x \in S
         //    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
             
-    
-        
-		//intersect_sphere(temp_ray, mint, closest_t, temp_isect);
         intersect_sphere(temp_ray, mint, closest_t, temp_isect);
 		if (temp_isect.t<closest_t)
 		{
 			info = temp_isect;
-			Material mat = materials[int(sphere.mat_id.x)];
+			Material mat = materials[0];
 			info.mat = convert_old_material(mat);
+			info.type = 2; 
 		}
 		closest_t = min(temp_isect.t, closest_t);
-	}
+	//} 
+
+	/* intersect light */
+
 
 	/* intersect triangles */
 	/*
@@ -775,11 +890,12 @@ bool intersect_scene
 		closest_t = min(temp_isect.t, closest_t);
 	} */
 
-	if (grid_march(ray, mint, maxt, temp_isect)) {
+	if (grid_march(ray, mint, maxt, temp_isect, scene)) {
 		if (temp_isect.t<closest_t)
 		{
 			info = temp_isect;
 			closest_t = info.t;
+			info.type = 3;
 		}
 	}
 
