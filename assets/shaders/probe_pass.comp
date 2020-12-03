@@ -28,6 +28,7 @@ layout(binding = 0) uniform RenderSettings
     int num_probes_width;
     int num_probes_height;
     int sqrt_rays_per_probe;
+	int scene;
 }
 render_settings;
 
@@ -164,7 +165,7 @@ void main() {
 	vec3 normal = vec3(0.0);
 	vec2 distances = vec2(0.0);
 	
-	if(intersect_scene(r, 0, INF, temp_info)) {
+	if(intersect_scene(r, 0, INF, render_settings.scene, temp_info)) {
 		color = temp_info.mat.base_color;
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
@@ -174,7 +175,7 @@ void main() {
 		light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
 		light_feeler.direction = normalize(spheres[0].radius - light_feeler.origin);
 		Isect light_info;
-		if (intersect_scene(light_feeler, mint, maxt, light_info)) {
+		if (intersect_scene(light_feeler, mint, maxt, render_settings.scene, light_info)) {
 	        if (distance(light_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
 	            acc += temp_info.mat.base_color;
 	        } else {

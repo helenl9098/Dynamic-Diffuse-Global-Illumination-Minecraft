@@ -28,6 +28,7 @@ layout(binding = 0) uniform RenderSettings
     int num_probes_width;
     int num_probes_height;
     int sqrt_rays_per_probe;
+    int scene;
 }
 render_settings;
 layout(binding = 1, rgba8) uniform writeonly image2D result_image;
@@ -118,7 +119,7 @@ vec3 eval_integrator
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF, irradiance_field.probeCounts, irradiance_field.sideLength);
+		return integrator_binary(ray, 0, INF, irradiance_field.probeCounts, irradiance_field.sideLength, render_settings.scene);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:
