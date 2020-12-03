@@ -89,7 +89,6 @@ bool RVPT::initialize()
 }
 bool RVPT::update()
 {
-    spheres[0].origin[1] -= 0.01; 
     auto camera_data = scene_camera.get_data();
 
     render_settings.camera_mode = scene_camera.get_camera_mode();
@@ -1046,9 +1045,12 @@ void RVPT::add_triangle(Triangle triangle)
 
 void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
 {
-    float inv_sqrt = 1.f / sqrt_num_rays;
+    float inv_sqrt = 1.f / float(sqrt_num_rays);
     int num_rays = sqrt_num_rays * sqrt_num_rays;
+    output.clear();
     output.resize(num_rays);
+
+    int i = 0; 
 
     for (int y = 0; y < sqrt_num_rays; y++)
     {
@@ -1063,8 +1065,8 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
             glm::vec3 sphere_sample(cosf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)),
                                     sinf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)), z);
             
-            int i = y * sqrt_num_rays + x;
             output[i] = sphere_sample;
+            i++;
         }
     }
 }
@@ -1073,41 +1075,37 @@ void RVPT::generate_probe_rays()
 {
     // Need to integrate this with the probe class (should it exist)
     std::vector<glm::vec3> probes;
-    probes.emplace_back(glm::vec3(1.5, 0.5, 0));
-    /*probes.emplace_back(glm::vec3(1.5, 0.5, 0));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 0));
-    probes.emplace_back(glm::vec3(1.5, 12.5, 10));
+    probes.push_back(glm::vec3(1.5, 0.5, 0));
+    probes.push_back(glm::vec3(4.5, 0.5, 0));
+    probes.push_back(glm::vec3(6.5, 0.5, 0));
+    probes.push_back(glm::vec3(8.5, 2.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 2.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 4.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 6.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 8.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 12));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 14));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 16));
     probes.emplace_back(glm::vec3(1.5, 10.5, 20));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 30));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 40));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 50));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 60));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 70));
-    probes.emplace_back(glm::vec3(100.5, 100.5, 0));
-    probes.emplace_back(glm::vec3(1.5, -100.5, 0));
-    probes.emplace_back(glm::vec3(1.5, -200.5, 0));
-    probes.emplace_back(glm::vec3(1.5, -300.5, 0));
-    probes.emplace_back(glm::vec3(1.5, -400.5, 0));
-    probes.emplace_back(glm::vec3(1.5, -500.5, 0));*/
-    
+
+    std::vector<glm::vec3> samples;
+    generate_samples(samples, render_settings.sqrt_rays_per_probe);
+
     for (int p_index = 0; p_index < probes.size(); p_index++)
     {
         glm::vec3 p = probes[p_index];
-
-        std::vector<glm::vec3> samples;
-        generate_samples(samples, render_settings.sqrt_rays_per_probe);
 
         int x = 0, y = 0;
 
         for (int i = 0; i < samples.size(); i++)
         {
             probe_rays.emplace_back(ProbeRay(p,
-                                             glm::normalize(samples[i] - p),
+                                             glm::normalize(samples[i]),
                                              p_index,
                                              glm::vec2(x, y)));
 
             x++;
-            if (x >= render_settings.sqrt_rays_per_probe -1)
+            if (x >= render_settings.sqrt_rays_per_probe)
             {
                 x = 0;
                 y++;

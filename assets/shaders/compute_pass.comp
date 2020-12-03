@@ -151,11 +151,19 @@ Ray get_camera_ray
 	}
 }
 
+ivec2 get_texture_coords_of_probe_index(int index) {
+    int y_probe = index / render_settings.num_probes_width;
+    int x_probe = index - (y_probe * render_settings.num_probes_width);
+
+    return ivec2(x_probe, y_probe) * render_settings.sqrt_rays_per_probe;
+}
+
+// DEBUGGING: use this if you want to display the entire probe texture
 ivec2 get_probe_image_coords(vec2 original) {
     int probe_texture_width  = render_settings.num_probes_width
-                                * render_settings.sqrt_rays_per_probe;
+                                * render_settings.sqrt_rays_per_probe * 2;
     int probe_texture_height = render_settings.num_probes_height
-                                * render_settings.sqrt_rays_per_probe;
+                                * render_settings.sqrt_rays_per_probe * 2;
 
     return ivec2(int(original.x * probe_texture_width / render_settings.screen_width),
                  int(original.y * probe_texture_height / render_settings.screen_height));

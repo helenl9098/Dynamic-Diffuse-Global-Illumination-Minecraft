@@ -85,9 +85,9 @@ public:
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
 
         // LOOK: probe texture variables
-        int num_probes_width = 1;
-        int num_probes_height = 1;
-        int sqrt_rays_per_probe = 2;
+        int num_probes_width = 3;
+        int num_probes_height = 4;
+        int sqrt_rays_per_probe = 30;
     } render_settings;
 
 private:

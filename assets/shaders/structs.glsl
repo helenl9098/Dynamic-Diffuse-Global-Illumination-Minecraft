@@ -23,8 +23,7 @@ struct ProbeRay
 {
     vec3 origin;
     vec3 direction;
-    vec2 texture_offset;
-    int probe_index;
+    vec3 probe_info;
 };
 
 struct Material

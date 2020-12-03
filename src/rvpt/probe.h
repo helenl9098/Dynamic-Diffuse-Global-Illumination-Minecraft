@@ -10,12 +10,11 @@ struct ProbeRay
                       glm::vec2 t_offset) {
 		origin = orig;
         direction = dir;
-        probe_index = p_index;
-        texture_offset = t_offset;
+        probe_info = glm::vec3(p_index, t_offset.x, t_offset.y);
 	}
 
 	alignas(16) glm::vec3 origin;
     alignas(16) glm::vec3 direction;
-    alignas(4)  int probe_index;  // what probe is this ray being shot from?
-    alignas(8)  glm::vec2 texture_offset;
+    alignas(16) glm::vec3 probe_info;  // what probe is this ray being shot from,
+                                       // and what is the texture offset?
 };
