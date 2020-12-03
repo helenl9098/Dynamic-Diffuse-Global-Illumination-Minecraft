@@ -88,6 +88,8 @@ public:
         int num_probes_width = 1;
         int num_probes_height = 1;
         int sqrt_rays_per_probe = 100;
+
+        int scene = 0;
     } render_settings;
 	
 	// S_CHANGE

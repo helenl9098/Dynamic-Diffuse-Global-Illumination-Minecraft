@@ -189,6 +189,7 @@ void RVPT::update_imgui()
     if (ImGui::Begin("Render Settings", &show_stats))
     {
         ImGui::PushItemWidth(80);
+        ImGui::SliderInt("Scene", &render_settings.scene, 0, 2);
         ImGui::SliderInt("AA", &render_settings.aa, 1, 64);
         ImGui::SliderInt("Max Bounce", &render_settings.max_bounces, 1, 64);
 
