@@ -28,7 +28,8 @@ bool RVPT::PreviousFrameState::operator==(RVPT::PreviousFrameState const& right)
            settings.top_right_render_mode == right.settings.top_right_render_mode &&
            settings.bottom_left_render_mode == right.settings.bottom_left_render_mode &&
            settings.bottom_right_render_mode == right.settings.bottom_right_render_mode &&
-           settings.camera_mode == right.settings.camera_mode && camera_data == right.camera_data;
+           settings.camera_mode == right.settings.camera_mode && camera_data == right.camera_data &&
+           settings.scene == right.settings.scene;
 }
 
 RVPT::RVPT(Window& window)
