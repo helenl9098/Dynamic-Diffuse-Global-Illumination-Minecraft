@@ -1073,6 +1073,21 @@ void RVPT::generate_probe_rays()
     // Need to integrate this with the probe class (should it exist)
     std::vector<glm::vec3> probes;
     probes.emplace_back(glm::vec3(1.5, 0.5, 0));
+    /*probes.emplace_back(glm::vec3(1.5, 0.5, 0));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 0));
+    probes.emplace_back(glm::vec3(1.5, 12.5, 10));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 20));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 30));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 40));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 50));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 60));
+    probes.emplace_back(glm::vec3(1.5, 10.5, 70));
+    probes.emplace_back(glm::vec3(100.5, 100.5, 0));
+    probes.emplace_back(glm::vec3(1.5, -100.5, 0));
+    probes.emplace_back(glm::vec3(1.5, -200.5, 0));
+    probes.emplace_back(glm::vec3(1.5, -300.5, 0));
+    probes.emplace_back(glm::vec3(1.5, -400.5, 0));
+    probes.emplace_back(glm::vec3(1.5, -500.5, 0));*/
     
     for (int p_index = 0; p_index < probes.size(); p_index++)
     {
@@ -1081,11 +1096,21 @@ void RVPT::generate_probe_rays()
         std::vector<glm::vec3> samples;
         generate_samples(samples, render_settings.sqrt_rays_per_probe);
 
+        int x = 0, y = 0;
+
         for (int i = 0; i < samples.size(); i++)
         {
             probe_rays.emplace_back(ProbeRay(p,
                                              glm::normalize(samples[i] - p),
-                                             p_index));
+                                             p_index,
+                                             glm::vec2(x, y)));
+
+            x++;
+            if (x >= render_settings.sqrt_rays_per_probe -1)
+            {
+                x = 0;
+                y++;
+            }
         }
     }
     

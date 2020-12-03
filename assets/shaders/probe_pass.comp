@@ -133,14 +133,38 @@ vec3 map_to_unit_hemisphere_around_normal
 #include "material.glsl"
 #include "integrators.glsl"
 
+bool is_odd(int num) {
+    return (num / 2) * 2 != num;
+}
+
+// Gets the bottom left corner of the probe texture at that index
+ivec2 get_texture_coords_of_probe_index(int index) {
+    int y_probe = 0;
+    
+    if(is_odd(render_settings.sqrt_rays_per_probe)) {
+        y_probe = max((index - 1), 0) / render_settings.num_probes_width;
+    } else {
+        y_probe = index / render_settings.num_probes_width;
+    }
+
+    int x_probe = index - (y_probe * render_settings.num_probes_width);
+    int y_coord = y_probe * render_settings.sqrt_rays_per_probe;
+    int x_coord = x_probe * render_settings.sqrt_rays_per_probe;
+
+    return ivec2(x_coord, y_coord);
+}
+
 void main() {
-	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-	int index = render_settings.sqrt_rays_per_probe * pixel_coords.y + pixel_coords.x;
+	ivec2 thread_coords = ivec2(gl_GlobalInvocationID.xy);
+	int index = render_settings.sqrt_rays_per_probe * thread_coords.y + thread_coords.x;
 
 	int num_rays_per_probe = render_settings.sqrt_rays_per_probe
 								* render_settings.sqrt_rays_per_probe;
 	Isect temp_info;
 	ProbeRay probe_ray = rays[index];
+	ivec2 texture_coords = get_texture_coords_of_probe_index(probe_ray.probe_index);
+	texture_coords = ivec2(probe_ray.texture_offset);
+
 	Ray r = Ray(probe_ray.origin, probe_ray.direction);
 	
 	vec3 color = vec3(0.0);
@@ -171,8 +195,8 @@ void main() {
 	}
 
 
-	imageStore(result_albedo, pixel_coords, vec4(color, 1.0));
-	imageStore(result_normals, pixel_coords, vec4(normal, 0.0));
-	imageStore(result_distances, pixel_coords, vec4(distances, 0.0, 0.0));
+	imageStore(result_albedo, thread_coords, vec4(color, 1.0));
+	imageStore(result_normals, texture_coords, vec4(normal, 0.0));
+	imageStore(result_distances, texture_coords, vec4(distances, 0.0, 0.0));
 	
 }

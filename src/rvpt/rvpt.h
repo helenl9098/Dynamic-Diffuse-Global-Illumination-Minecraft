@@ -87,7 +87,7 @@ public:
         // LOOK: probe texture variables
         int num_probes_width = 1;
         int num_probes_height = 1;
-        int sqrt_rays_per_probe = 100;
+        int sqrt_rays_per_probe = 2;
     } render_settings;
 
 private:

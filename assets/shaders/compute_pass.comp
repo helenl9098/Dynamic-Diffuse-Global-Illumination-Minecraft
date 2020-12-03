@@ -212,5 +212,5 @@ void main()
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
-    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
+    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(probe, 0));
 }
