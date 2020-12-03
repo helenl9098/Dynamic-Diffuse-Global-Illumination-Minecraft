@@ -3,5 +3,6 @@
 .vscode
 cmake-build-*
 /build
+.spv
 
 # Files
