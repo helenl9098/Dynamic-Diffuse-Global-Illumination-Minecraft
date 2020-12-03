@@ -89,6 +89,7 @@ bool RVPT::initialize()
 }
 bool RVPT::update()
 {
+    spheres[0].origin[1] -= 0.01; 
     auto camera_data = scene_camera.get_data();
 
     render_settings.camera_mode = scene_camera.get_camera_mode();

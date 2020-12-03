@@ -46,7 +46,7 @@ vec3 integrator_binary
 
     Isect info;
     
-    vec3 col = vec3(0, 0, 1.0);
+    vec3 col = vec3(0, 0, 0);
     if (!intersect_scene(ray, mint, maxt, info))
         return col;
 
@@ -58,12 +58,13 @@ vec3 integrator_binary
         }
     } */
     // CHANGED: direct lighting
-    Ray light_feeler = Ray(info.pos + 0.0001 * info.normal, spheres[0].origin - info.pos); // position of light
+    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(0/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
-        if (distance(temp_info.pos, spheres[0].origin) <= spheres[0].radius + 0.01) {
+        if (temp_info.type == 2) {
             return info.mat.base_color;
         } else {
             return info.mat.base_color / 10.0;
+            //return vec3(0);
         }
     } // end of direct lighting
 
