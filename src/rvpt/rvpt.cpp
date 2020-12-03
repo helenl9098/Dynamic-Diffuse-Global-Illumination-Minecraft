@@ -558,6 +558,29 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     auto raytrace_descriptor_pool = VK::DescriptorPool(
         vk_device, compute_layout_bindings, MAX_FRAMES_IN_FLIGHT, "raytrace_descriptor_pool");
 
+    /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
+             There are different descriptor types:
+                   UNIFORM_BUFFER -> for uniforms
+                   STORAGE_BUFFER -> don't know the difference from uniform but that's how they pass in spheres / triangles
+                   STORAGE_IMAGE  -> textures */
+    std::vector<VkDescriptorSetLayoutBinding> probe_layout_bindings = {
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // rays
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // output albedo
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // output normals
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // output distance
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+    };
+
+    // Probe pipeline setup
+    auto probe_descriptor_pool = VK::DescriptorPool(
+        vk_device, probe_layout_bindings, MAX_FRAMES_IN_FLIGHT, "probe_descriptor_pool");
+
+    auto probe_pipeline_layout = pipeline_builder.create_layout(
+        {probe_descriptor_pool.layout()}, {}, "probe_pipeline_layout");
+
     auto fullscreen_triangle_pipeline_layout = pipeline_builder.create_layout(
         {image_pool.layout()}, {}, "fullscreen_triangle_pipeline_layout");
 
@@ -615,6 +638,61 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     auto opaque = pipeline_builder.create_pipeline(debug_details);
     debug_details.polygon_mode = VK_POLYGON_MODE_LINE;
     auto wireframe = pipeline_builder.create_pipeline(debug_details);
+
+    int probe_texture_width =
+        render_settings.num_probes_width * render_settings.sqrt_rays_per_probe;
+    int probe_texture_height =
+        render_settings.num_probes_height * render_settings.sqrt_rays_per_probe;
+
+    /* LOOK: These are the actual definitions of the textures using VK::Image */
+
+    auto probe_texture_albedo = VK::Image(
+        vk_device,
+        memory_allocator,
+        *graphics_queue,
+        "probe_texture",
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL,
+        probe_texture_width,
+        probe_texture_height,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+        VK::MemoryUsage::gpu
+    );
+
+    auto probe_texture_normals = VK::Image(
+        vk_device,
+        memory_allocator,
+        *graphics_queue,
+        "probe_texture",
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL,
+        probe_texture_width,
+        probe_texture_height,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+        VK::MemoryUsage::gpu
+    );
+
+    auto probe_texture_distance = VK::Image(
+        vk_device,
+        memory_allocator,
+        *graphics_queue,
+        "probe_texture",
+        VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL,
+        probe_texture_width,
+        probe_texture_height,
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+        VK::MemoryUsage::gpu
+    );
 
     auto temporal_storage_image = VK::Image(
         vk_device, memory_allocator, *graphics_queue, "temporal_storage_image",
@@ -690,6 +768,19 @@ void RVPT::add_per_frame_data(int index)
         VK::Buffer(vk_device, memory_allocator, "materials_buffer_" + std::to_string(index),
                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Material) * materials.size(),
                    VK::MemoryUsage::cpu_to_gpu);
+
+    // LOOK: the definition of the probe ray buffer as well as command buffer + workfence
+
+    auto probe_buffer =
+        VK::Buffer(vk_device, memory_allocator, "probes_buffer_" + std::to_string(index),
+                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(ProbeRay) * probe_rays.size(),
+                   VK::MemoryUsage::cpu_to_gpu);
+
+    auto probe_command_buffer =
+        VK::CommandBuffer(vk_device, compute_queue.has_value() ? *compute_queue : *graphics_queue,
+                          "probe_command_buffer_" + std::to_string(index));
+    auto probe_work_fence = VK::Fence(vk_device, "probe_work_fence_" + std::to_string(index));
+
     auto raytrace_command_buffer =
         VK::CommandBuffer(vk_device, compute_queue.has_value() ? *compute_queue : *graphics_queue,
                           "raytrace_command_buffer_" + std::to_string(index));
@@ -721,6 +812,19 @@ void RVPT::add_per_frame_data(int index)
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
+
+    // LOOK: need to update this if you update the {0, 1, 2} thing referenced earlier
+    std::vector<VK::DescriptorUseVector> probe_descriptors; // change this when you add more images
+    probe_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
+    probe_descriptors.push_back(std::vector{probe_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
+    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
+    probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
+    rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
+                                                                      probe_descriptors);
 
     // Debug vis
     auto debug_camera_uniform = VK::Buffer(
@@ -845,6 +949,24 @@ void RVPT::record_compute_command_buffer()
         compute_queue.has_value() ? compute_queue->get_family() : graphics_queue->get_family();
     in_temporal_image_barrier.dstQueueFamilyIndex = queue_family;
     in_temporal_image_barrier.srcQueueFamilyIndex = queue_family;
+
+    // LOOK: Here is where we dispatch probe shader
+
+    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK::FLAGS_NONE, 0, nullptr, 0,
+                         nullptr, 1, &probe_image_barrier);
+
+    vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      pipeline_builder.get_pipeline(rendering_resources->probe_pipeline));
+
+    vkCmdBindDescriptorSets(
+        cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, rendering_resources->probe_pipeline_layout, 0,
+        1, &per_frame_data[current_frame_index].probe_descriptor_sets.set, 0, 0);
+
+    vkCmdDispatch(cmd_buf, ceil( (float) rendering_resources->probe_texture_albedo.width / 16.0f),
+                           ceil( (float) rendering_resources->probe_texture_albedo.height / 16.0f), 1);
+
+    // Dispatch raytracing shader
 
     vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK::FLAGS_NONE, 0, nullptr, 0,

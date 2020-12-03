@@ -188,6 +188,12 @@ void main()
     sampled = temporal_accumulation_sample * current_frame / (current_frame + 1) +
               sampled / (current_frame + 1);
 
+    ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
+
+    vec3 probe = imageLoad(probe_image_albedo, coords).xyz;
+
+    // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
+
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
     imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
 }

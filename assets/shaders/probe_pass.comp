@@ -1,0 +1,178 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#define PI 3.1415926535897932384626433832795
+#define RAY_MIN_DIST 0.01
+#define EPSILON 0.005
+#define MARCH_ITER 32
+#define MARCH_EPS 0.1
+#define INF 1.0/0.0
+
+#include "structs.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform RenderSettings
+{
+    int screen_width;
+    int screen_height;
+    int max_bounces;
+    int aa;
+    uint current_frame;
+    int camera_mode;
+    int top_left_render_mode;
+    int top_right_render_mode;
+    int bottom_left_render_mode;
+    int bottom_right_render_mode;
+    vec2 split_ratio;
+    int num_probes_width;
+    int num_probes_height;
+    int sqrt_rays_per_probe;
+}
+render_settings;
+
+layout(std430, binding = 1) buffer ProbeRays { ProbeRay rays[]; };
+
+layout(binding = 2, rgba8) uniform writeonly image2D result_albedo;
+layout(binding = 3, rgba8) uniform writeonly image2D result_normals;
+layout(binding = 4, rgba8) uniform writeonly image2D result_distances;
+
+layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
+layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
+layout(std430, binding = 7) buffer Materials { Material materials[]; };
+
+//// TAKEN FROM UTILS.GLSL (not included because of absent variables) ///////
+
+uint wang_hash(uint seed)
+{
+    seed = (seed ^ 61) ^ (seed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+uint p_idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * render_settings.num_probes_width * render_settings.sqrt_rays_per_probe;
+uint rng_state = wang_hash(p_idx);
+
+uint rand_xorshift()
+{
+    // Xorshift algorithm from George Marsaglia's paper
+    rng_state ^= (rng_state << 13);
+    rng_state ^= (rng_state >> 17);
+    rng_state ^= (rng_state << 5);
+    return rng_state;
+}
+
+float rand()
+{
+    return rand_xorshift() / 4294967296.0;
+}
+
+void construct_orthonormal_basis_Pixar
+
+	(out vec3 e0,   /* x basis vector */
+	 out vec3 e1,   /* y basis vector */
+	 in  vec3 e2)   /* z basis vector */
+
+/*
+	Given a vector e2 generates an orthonormal basis: {e0, e1, e2}.
+	
+	Code from:
+	Building an Orthonormal Basis, Revisited, (JCGT), vol. 6, no. 1, 1-8, 2017
+	Available online: http://jcgt.org/published/0006/01/01/
+*/
+
+{
+	float sign = e2.z < 0.0 ? -1.0 : 1.0;
+	float a = -1.0 / (sign + e2.z);
+	float b = e2.x * e2.y * a;
+	e0 = vec3(1.0 + sign * e2.x * e2.x * a, sign * b, -sign * e2.x);
+	e1 = vec3(b, sign + e2.y * e2.y * a, -e2.y);
+	
+	return;
+	
+} /* construct_orthonormal_basis_Pixar */
+
+vec3 map_to_unit_hemisphere_around_normal
+
+	(float phi,        /* azimuth angle */ 
+	 float cos_theta,  /* cosine of the polar angle */
+	 float sin_theta,  /* sine of the polar angle */
+	 vec3  n)          /* unit normal */
+
+/*
+	Given the azimuthal and polar angles in spherical coordinates 
+	returns the Cartesian coordinates of the point with these angles 
+	on the unit hemisphere centered around the normal `n`.
+	
+	x = r * cos(phi) * sin(theta)
+	y = r * sin(phi) * sin(theta)
+	z = r * cos(theta)
+*/
+
+{
+
+	float x = cos(phi) * sin_theta;
+	float y = sin(phi) * sin_theta;
+	float z = cos_theta;
+
+	vec3 e0, e1;
+	construct_orthonormal_basis_Pixar (e0, e1, n);
+	
+	return x * e0 + y * e1 + z * n;
+
+} /* map_to_unit_hemisphere_around_normal */
+
+////////////////////// MAIN //////////////////////////
+
+#include "samples_mapping.glsl"
+#include "intersection.glsl"
+#include "distance_functions.glsl"
+#include "material.glsl"
+#include "integrators.glsl"
+
+void main() {
+	ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+	int index = render_settings.sqrt_rays_per_probe * pixel_coords.y + pixel_coords.x;
+
+	int num_rays_per_probe = render_settings.sqrt_rays_per_probe
+								* render_settings.sqrt_rays_per_probe;
+	Isect temp_info;
+	ProbeRay probe_ray = rays[index];
+	Ray r = Ray(probe_ray.origin, probe_ray.direction);
+	
+	vec3 color = vec3(0.0);
+	vec3 normal = vec3(0.0);
+	vec2 distances = vec2(0.0);
+	
+	if(intersect_scene(r, 0, INF, temp_info)) {
+		color = temp_info.mat.base_color;
+		normal = temp_info.normal;
+		distances.x = length(temp_info.pos - r.origin);
+		distances.y = distances.x * distances.x;
+		
+		/*Ray light_feeler;
+		light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
+		light_feeler.direction = normalize(spheres[0].radius - light_feeler.origin);
+		Isect light_info;
+		if (intersect_scene(light_feeler, mint, maxt, light_info)) {
+	        if (distance(light_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
+	            acc += temp_info.mat.base_color;
+	        } else {
+	        	acc += temp_info.mat.base_color * 0.5;
+	        }
+	    }
+
+	    float lambert = clamp(dot(temp_info.normal, normalize(temp_info.pos - spheres[0].origin)), 0.0, 1.0);
+
+	    acc += temp_info.mat.base_color;*/
+	}
+
+
+	imageStore(result_albedo, pixel_coords, vec4(color, 1.0));
+	imageStore(result_normals, pixel_coords, vec4(normal, 0.0));
+	imageStore(result_distances, pixel_coords, vec4(distances, 0.0, 0.0));
+	
+}
