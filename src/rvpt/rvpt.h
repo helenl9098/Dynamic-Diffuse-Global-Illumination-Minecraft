@@ -83,24 +83,16 @@ public:
         int bottom_left_render_mode = 0;
         int bottom_right_render_mode = 0;
         glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
-
-        // LOOK: probe texture variables
-        int num_probes_width = 3;
-        int num_probes_height = 4;
-        int sqrt_rays_per_probe = 30;
     } render_settings;
 	
 	// S_CHANGE
-    // irradiance field member variable
-    // had to do this because new files are not
-    // recognized after running cmake
-    // youd have to readd the existing file after every build
     struct IrradianceField
     {
-        glm::ivec3 probeCounts = glm::ivec3(4, 4, 4);
-        int sideLength = 2;
-        float hysteresis = 0.98f;
-        int raysPerProbe = 64;
+        glm::ivec3 probe_count = glm::ivec3(2, 3, 2); // number of probes in x, y, z directions
+        int side_length = 2;                          // side length of the cubes that encase the probe
+        float hysteresis = 0.98f;                     // blending coefficient
+        int sqrt_rays_per_probe = 12;                 // sqrt of the number of rays per probe. for some reason
+                                                      // it only works with even numbers; can debug later
     };
     IrradianceField ir;
 
