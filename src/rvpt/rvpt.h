@@ -88,7 +88,7 @@ public:
         int num_probes_width = 3;
         int num_probes_height = 4;
         int sqrt_rays_per_probe = 30;
-		
+
         int scene = 0;
     } render_settings;
 	
