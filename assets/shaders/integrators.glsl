@@ -22,14 +22,6 @@
 const float TWO_PI = 6.28318531;
 const float SQRT_OF_ONE_THIRD = 0.577350269;
 
-float random(vec3 point) {
-    return fract(sin(dot(point.xyz, vec3(12.9898,78.233, 4.43232))) * 43758.5453);
-}
-
-float random2(vec3 point) {
-	return fract(cos(dot(point.yzx, vec3(873.3, 300.86, 5023.32))) * 43.212);
-}
-
 /*--------------------------------------------------------------------------*/
 
 vec3 integrator_binary
@@ -87,13 +79,6 @@ vec3 integrator_binary
     } // end of direct lighting
 
     // indirect bounce
-
-/*    Ray new_ray = Ray(light_feeler.origin, calculateRandomDirectionInHemisphere(info.normal, light_feeler.origin));
-    Isect new_temp_info;
-
-    if(intersect_scene(new_ray, mint, maxt, new_temp_info)) {
-    	col += temp_info.mat.base_color;
-    }*/
 
     /* shoot several rays to estimate the occlusion integral */
 	vec3 acc = vec3(0.0);

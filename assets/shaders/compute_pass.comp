@@ -210,7 +210,7 @@ void main()
     vec3 sampled = vec3(0);
     for (int i = 0; i < render_settings.aa; i++)
     {
-        vec2 coord = (vec2(gl_GlobalInvocationID.xy) + vec2(rand(), rand())) / dim;
+        vec2 coord = vec2(gl_GlobalInvocationID.xy) / dim; // use this for temporal sampling + vec2(rand(), rand())) / dim;
 		coord.y = 1.0-coord.y; /* flip image vertically */
         
 		Ray ray = get_camera_ray(render_settings.camera_mode, coord.x, coord.y);
@@ -220,8 +220,9 @@ void main()
     float current_frame = float(render_settings.current_frame);
 
     sampled /= render_settings.aa;
-    sampled = temporal_accumulation_sample * current_frame / (current_frame + 1) +
-              sampled / (current_frame + 1);
+    // Integrates with multiple passes; enable this for temporal sampling
+    /*sampled = temporal_accumulation_sample * current_frame / (current_frame + 1) +
+              sampled / (current_frame + 1);*/
 
     ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
 
@@ -229,6 +230,5 @@ void main()
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
-    // imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(probe, 0));
     imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
 }
