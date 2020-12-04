@@ -69,19 +69,22 @@ void update_camera(Window& window, RVPT& rvpt)
 {
     glm::vec3 movement{};
     double frameDelta = rvpt.time.since_last_frame();
+    // float mvmt_speed = 3.f;
+    float mvmt_speed = 10.f;
 
     if (window.is_key_held(Window::KeyCode::KEY_LEFT_CONTROL)) frameDelta *= 5;
-    if (window.is_key_held(Window::KeyCode::SPACE)) movement.y += 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_LEFT_SHIFT)) movement.y -= 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_W)) movement.z += 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_S)) movement.z -= 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_D)) movement.x += 3.0f;
-    if (window.is_key_held(Window::KeyCode::KEY_A)) movement.x -= 3.0f;
+    if (window.is_key_held(Window::KeyCode::SPACE)) movement.y += mvmt_speed;
+    if (window.is_key_held(Window::KeyCode::KEY_LEFT_SHIFT)) movement.y -= mvmt_speed;
+    if (window.is_key_held(Window::KeyCode::KEY_W)) movement.z += mvmt_speed;
+    if (window.is_key_held(Window::KeyCode::KEY_S)) movement.z -= mvmt_speed;
+    if (window.is_key_held(Window::KeyCode::KEY_D)) movement.x += mvmt_speed;
+    if (window.is_key_held(Window::KeyCode::KEY_A)) movement.x -= mvmt_speed;
 
     rvpt.scene_camera.move(static_cast<float>(frameDelta) * movement);
 
     glm::vec3 rotation{};
-    float rot_speed = 0.3f;
+    // float rot_speed = 0.3f;
+    float rot_speed = 10.f;
     if (window.is_key_down(Window::KeyCode::KEY_RIGHT)) rotation.x = rot_speed;
     if (window.is_key_down(Window::KeyCode::KEY_LEFT)) rotation.x = -rot_speed;
     if (window.is_key_down(Window::KeyCode::KEY_UP)) rotation.y = -rot_speed;
