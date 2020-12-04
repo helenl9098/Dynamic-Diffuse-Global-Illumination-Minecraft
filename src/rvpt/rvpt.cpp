@@ -90,6 +90,7 @@ bool RVPT::initialize()
 }
 bool RVPT::update()
 {
+    spheres[0].origin.y -= 0.01f;
     auto camera_data = scene_camera.get_data();
 
     render_settings.camera_mode = scene_camera.get_camera_mode();
@@ -126,7 +127,6 @@ bool RVPT::update()
     // similar to random numbers
     per_frame_data[current_frame_index].irradiance_field_uniform.copy_to(ir);
 	
-
     if (debug_overlay_enabled)
     {
         std::vector<DebugVertex> debug_triangles;
@@ -567,24 +567,24 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
 
     auto fullscreen_triangle_pipeline = pipeline_builder.create_pipeline(fullscreen_details);
     std::vector<VkDescriptorSetLayoutBinding> compute_layout_bindings = {
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // S_CHANGED: for irradiance field info
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // temporal image
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
+        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (normal)
+        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
+		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
              There are different descriptor types:
                    UNIFORM_BUFFER -> for uniforms
-                   STORAGE_BUFFER -> don't know the difference from uniform but that's how they pass in spheres / triangles
+                   STORAGE_BUFFER -> you can write to these, but here they act as uniforms. that's how original code passes in spheres / triangles
                    STORAGE_IMAGE  -> textures */
 
     std::vector<VkDescriptorSetLayoutBinding> probe_layout_bindings = {
@@ -596,6 +596,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
         {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
         {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+        {8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
     };
 
     // Probe pipeline setup
@@ -661,10 +662,8 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     debug_details.polygon_mode = VK_POLYGON_MODE_LINE;
     auto wireframe = pipeline_builder.create_pipeline(debug_details);
 
-    int probe_texture_width =
-        render_settings.num_probes_width * render_settings.sqrt_rays_per_probe;
-    int probe_texture_height =
-        render_settings.num_probes_height * render_settings.sqrt_rays_per_probe;
+    int probe_texture_width = ir.probe_count.x * ir.probe_count.z * ir.sqrt_rays_per_probe;
+    int probe_texture_height = ir.probe_count.y * ir.sqrt_rays_per_probe;
 
     /* LOOK: These are the actual definitions of the textures using VK::Image */
     auto probe_texture_albedo = VK::Image(
@@ -815,8 +814,8 @@ void RVPT::add_per_frame_data(int index)
     auto probe_work_fence = VK::Fence(vk_device, "probe_work_fence_" + std::to_string(index));
 
 	// S_CHANGED
-    auto irradiance_field_uniform = VK::Buffer(
-        vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
+    auto irradiance_field_uniform =
+        VK::Buffer(vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(IrradianceField), VK::MemoryUsage::cpu_to_gpu);
 
     auto raytrace_command_buffer =
@@ -872,6 +871,7 @@ void RVPT::add_per_frame_data(int index)
     probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
+    probe_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
                                                                       probe_descriptors);
 
@@ -1107,7 +1107,7 @@ void RVPT::generate_probe_rays()
     probes.emplace_back(glm::vec3(1.5, 10.5, 20));
 
     std::vector<glm::vec3> samples;
-    generate_samples(samples, render_settings.sqrt_rays_per_probe);
+    generate_samples(samples, ir.sqrt_rays_per_probe);
 
     for (int p_index = 0; p_index < probes.size(); p_index++)
     {
@@ -1123,7 +1123,7 @@ void RVPT::generate_probe_rays()
                                              glm::vec2(x, y)));
 
             x++;
-            if (x >= render_settings.sqrt_rays_per_probe)
+            if (x >= ir.sqrt_rays_per_probe)
             {
                 x = 0;
                 y++;

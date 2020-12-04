@@ -546,22 +546,4 @@ void set_image_layout(VkCommandBuffer command_buffer, VkImage image, VkImageLayo
 
 VkFormat get_depth_image_format(VkPhysicalDevice device);
 
-//class Texture
-//{
-//public:
-//    VkDevice device;
-//    VkImage image;
-//    VkImageLayout imageLayout;
-//    VkDeviceMemory deviceMemory;
-//    VkImageView view;
-//    uint32_t width, height;
-//    uint32_t mipLevels;
-//    uint32_t layerCount;
-//    VkDescriptorImageInfo descriptor;
-//    VkSampler sampler;
-//
-//    void updateDescriptor();
-//    void destroy();
-//};
-
 }  // namespace VK

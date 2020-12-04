@@ -25,9 +25,6 @@ layout(binding = 0) uniform RenderSettings
     int bottom_left_render_mode;
     int bottom_right_render_mode;
     vec2 split_ratio;
-    int num_probes_width;
-    int num_probes_height;
-    int sqrt_rays_per_probe;
 	int scene;
 }
 render_settings;
@@ -41,6 +38,14 @@ layout(binding = 4, rgba8) uniform writeonly image2D result_distances;
 layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
 layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
 layout(std430, binding = 7) buffer Materials { Material materials[]; };
+layout(binding = 8) uniform IrradianceField
+{
+    ivec3 probe_count;
+    int side_length;
+    float hysteresis;
+    int sqrt_rays_per_probe;
+} irradiance_field;
+
 
 //// TAKEN FROM UTILS.GLSL (not included because of absent variables) ///////
 
@@ -54,7 +59,8 @@ uint wang_hash(uint seed)
     return seed;
 }
 
-uint p_idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * render_settings.num_probes_width * render_settings.sqrt_rays_per_probe;
+uint p_idx = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y
+				* irradiance_field.probe_count.x * irradiance_field.probe_count.z * irradiance_field.sqrt_rays_per_probe;
 uint rng_state = wang_hash(p_idx);
 
 uint rand_xorshift()
@@ -138,21 +144,22 @@ vec3 map_to_unit_hemisphere_around_normal
 // the specified index.
 
 ivec2 get_texture_coords_of_probe_index(int index) {
-	int y_probe = index / render_settings.num_probes_width;
-	int x_probe = index - (y_probe * render_settings.num_probes_width);
+	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
+	int y_probe = index / texture_width;
+	int x_probe = index - (y_probe * texture_width);
 
-	return ivec2(x_probe, y_probe) * render_settings.sqrt_rays_per_probe;
+	return ivec2(x_probe, y_probe) * irradiance_field.sqrt_rays_per_probe;
 }
 
 void main() {
-	int texture_width = render_settings.num_probes_width
-							* render_settings.sqrt_rays_per_probe;
+	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
+							* irradiance_field.sqrt_rays_per_probe;
 	
 	ivec2 thread_coords = ivec2(gl_GlobalInvocationID.xy);
 	int index = texture_width * thread_coords.y + thread_coords.x;
 
-	int num_rays_per_probe = render_settings.sqrt_rays_per_probe
-								* render_settings.sqrt_rays_per_probe;
+	int num_rays_per_probe = irradiance_field.sqrt_rays_per_probe
+								* irradiance_field.sqrt_rays_per_probe;
 	Isect temp_info;
 	ProbeRay probe_ray = rays[index];
 	Ray r = Ray(probe_ray.origin, probe_ray.direction);
@@ -170,22 +177,6 @@ void main() {
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
-
-		/*Ray light_feeler;
-		light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
-		light_feeler.direction = normalize(spheres[0].radius - light_feeler.origin);
-		Isect light_info;
-		if (intersect_scene(light_feeler, mint, maxt, render_settings.scene, light_info)) {
-	        if (distance(light_info.pos, spheres[0].origin) <= spheres[0].radius + 0.001) {
-	            acc += temp_info.mat.base_color;
-	        } else {
-	        	acc += temp_info.mat.base_color * 0.5;
-	        }
-	    }
-
-	    float lambert = clamp(dot(temp_info.normal, normalize(temp_info.pos - spheres[0].origin)), 0.0, 1.0);
-
-	    acc += temp_info.mat.base_color;*/
 	}
 
 

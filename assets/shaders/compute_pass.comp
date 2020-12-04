@@ -25,12 +25,10 @@ layout(binding = 0) uniform RenderSettings
     int bottom_left_render_mode;
     int bottom_right_render_mode;
     vec2 split_ratio;
-    int num_probes_width;
-    int num_probes_height;
-    int sqrt_rays_per_probe;
     int scene;
 }
 render_settings;
+
 layout(binding = 1, rgba8) uniform writeonly image2D result_image;
 layout(binding = 2, rgba8) uniform image2D temporal_image;
 layout(binding = 3) buffer Random { float random_source[]; };
@@ -53,10 +51,10 @@ layout(binding = 10, rgba8) uniform readonly image2D probe_image_distances;
 
 layout(binding = 11) uniform IrradianceField
 {
-    ivec3 probeCounts;
-    int sideLength;
+    ivec3 probe_count;
+    int side_length;
     float hysteresis;
-    int raysPerProbe;
+    int sqrt_rays_per_probe;
 } irradiance_field;
 
 
@@ -119,7 +117,7 @@ vec3 eval_integrator
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF, irradiance_field.probeCounts, irradiance_field.sideLength, render_settings.scene);
+		return integrator_binary(ray, 0, INF, irradiance_field.probe_count, irradiance_field.side_length, render_settings.scene);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:
@@ -163,18 +161,18 @@ Ray get_camera_ray
 }
 
 ivec2 get_texture_coords_of_probe_index(int index) {
-    int y_probe = index / render_settings.num_probes_width;
-    int x_probe = index - (y_probe * render_settings.num_probes_width);
+    int y_probe = index / (irradiance_field.probe_count.x * irradiance_field.probe_count.z);
+    int x_probe = index - (y_probe * irradiance_field.probe_count.x * irradiance_field.probe_count.z);
 
-    return ivec2(x_probe, y_probe) * render_settings.sqrt_rays_per_probe;
+    return ivec2(x_probe, y_probe) * irradiance_field.sqrt_rays_per_probe;
 }
 
 // DEBUGGING: use this if you want to display the entire probe texture
 ivec2 get_probe_image_coords(vec2 original) {
-    int probe_texture_width  = render_settings.num_probes_width
-                                * render_settings.sqrt_rays_per_probe * 2;
-    int probe_texture_height = render_settings.num_probes_height
-                                * render_settings.sqrt_rays_per_probe * 2;
+    int probe_texture_width  = irradiance_field.probe_count.x * irradiance_field.probe_count.z
+                                * irradiance_field.sqrt_rays_per_probe * 2;
+    int probe_texture_height = irradiance_field.probe_count.y
+                                * irradiance_field.sqrt_rays_per_probe * 2;
 
     return ivec2(int(original.x * probe_texture_width / render_settings.screen_width),
                  int(original.y * probe_texture_height / render_settings.screen_height));
