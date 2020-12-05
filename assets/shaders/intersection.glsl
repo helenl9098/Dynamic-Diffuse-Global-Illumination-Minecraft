@@ -1174,6 +1174,49 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
+
+vec3 get_sample(int probeIdx) { return vec3(0.f); }
+
+vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
+{
+
+	vec3 pos = info.pos;
+    vec3 N = info.normal;
+    V.direction = normalize(V.direction);	// view vector
+
+	ivec3 baseProbeIdx = ivec3(floor(tgtPos / float(sideLength));
+
+	ivec3 minProbeIdxIF = -(probeCounts / 2);
+
+	vec3 sumIrradiance = vec3(0.f);
+    float sumWeight = 0.f;
+	float alpha = (wsPosition - baseProbePos) / sideLength;
+
+	for (int i = 0; i < 8; i++) {
+        ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+        ivec3 probePos = ivec3(round((baseProbeIdx + offset) * sideLength));
+
+		int probeIdx1D = (probePos / sideLength).x + (probePos / sideLength).z * probeCount.x +
+                         (probePos / sideLength).y * probeCount.x * probeCount.z;
+
+		vec3 dir = normalize(probePos - pos);
+
+		vec3 trilinear = lerp(1.0 - alpha, alpha, offset);
+
+		// smooth backface test
+        float temp = max(0.0001, (dot(trueDirectionToProbe, wsN) + 1.0) * 0.5);
+		// small addition term is supposed to prevent the weight from going to zero
+        float weight = temp * temp + 0.2;
+
+
+	}
+
+    return vec3(0.f);
+}
+
+
+
+
 /*--------------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------------*/
