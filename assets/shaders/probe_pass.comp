@@ -172,14 +172,14 @@ void main() {
 	vec3 normal = vec3(0.0);
 	vec2 distances = vec2(0.0);
 	
-	if(intersect_scene(r, 0, INF, render_settings.scene, temp_info)) {
+	if(intersect_scene(r, 0, INF, temp_info)) {
 		color = temp_info.mat.base_color;
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
     // CHANGED: direct lighting
 
-     	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(0/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
+     	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
      	/*Isect light_info;
    		if (intersect_scene(light_feeler, 0, INF, light_info)) {
         	if (light_info.type == 2) {

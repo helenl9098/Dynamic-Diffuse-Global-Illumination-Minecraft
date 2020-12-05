@@ -30,8 +30,7 @@ vec3 integrator_binary
 	 float mint,    /* lower bound for t */
 	 float maxt,	/* upper bound for t */
 	 ivec3 probeCounts,
-	 int sideLength,
-     int scene)
+	 int sideLength)
 	 
 /*
 	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
@@ -42,7 +41,7 @@ vec3 integrator_binary
     Isect info;
     
     vec3 col = vec3(0, 0, 0);
-    if (!intersect_scene(ray, mint, maxt, scene, info))
+    if (!intersect_scene(ray, mint, maxt, info))
         return col;
 
     Isect temp_info;
@@ -68,7 +67,7 @@ vec3 integrator_binary
 	*/
 	
     // CHANGED: direct lighting
-    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(1/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
+    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (temp_info.type == 2) {
             return info.mat.base_color;
@@ -81,6 +80,7 @@ vec3 integrator_binary
     // indirect bounce
 
     /* shoot several rays to estimate the occlusion integral */
+    /*
 	vec3 acc = vec3(0.0);
 	int nrays = 10;
 	for (int i=0; i<nrays; ++i)
@@ -90,15 +90,15 @@ vec3 integrator_binary
 		float u = rand();
 		float v = rand();
 		
-		/* diffuse scattering, pdf cancels out \cos\theta / \pi factor */
+		// diffuse scattering, pdf cancels out \cos\theta / \pi factor 
 		new_ray.direction = map_cosine_hemisphere_simple(u,v, info.normal);
 		Isect temp_info;
 
-		if(intersect_scene(new_ray, mint, maxt, scene, temp_info)) {
+		if(intersect_scene(new_ray, mint, maxt, temp_info)) {
 			acc += temp_info.mat.base_color;
 		}
 		
-	}
+	} */
 	
 	return col;// + acc / float(nrays);
 
@@ -121,7 +121,7 @@ vec3 integrator_color
 	 
 {
     Isect info;
-    if (!intersect_scene(ray, mint, maxt, 0, info))
+    if (!intersect_scene(ray, mint, maxt, info))
         return vec3(0);
     else
         return info.mat.base_color;
@@ -143,7 +143,7 @@ vec3 integrator_depth
 	 
 {
 	Isect info;
-	intersect_scene (ray, mint, maxt, 0, info);
+	intersect_scene (ray, mint, maxt, info);
 	
 	/* find the distance by taking into account direction's magnitude */
 	float inv_dist = 1.0 / (length(ray.direction) * info.t);
@@ -166,7 +166,7 @@ vec3 integrator_normal
 	 
 {
 	Isect info;
-	float isect = float(intersect_scene (ray, mint, maxt, 0, info));
+	float isect = float(intersect_scene (ray, mint, maxt, info));
 	return 0.5*info.normal + vec3(0.5*isect);
 
 } /* integrator_normal */
@@ -198,7 +198,7 @@ vec3 integrator_Utah
     vec3 blue = vec3(0.2,0.3,0.7);
 
     /* intersected nothing -> background */
-    if (!intersect_scene (ray, mint, maxt, 0, info))
+    if (!intersect_scene (ray, mint, maxt, info))
         return mix(white, blue, ray.direction.y);
     
      
@@ -240,7 +240,7 @@ vec3 integrator_ao
 	
 {
 	Isect info;
-	bool isect = intersect_scene (ray, mint, maxt, 0, info);
+	bool isect = intersect_scene (ray, mint, maxt, info);
 	if (!isect) return vec3(0);
 	
     /* intersection data */
@@ -262,7 +262,7 @@ vec3 integrator_ao
 		new_ray.direction = map_cosine_hemisphere_simple(u,v,normal);
 		Isect temp_info;
 
-		if(intersect_scene(new_ray, mint, maxt, 0, temp_info)) {
+		if(intersect_scene(new_ray, mint, maxt, temp_info)) {
 			
 			/*Ray light_feeler;
 			light_feeler.origin = temp_info.pos + temp_info.normal * 0.0001;
@@ -314,7 +314,7 @@ vec3 integrator_Appel
     vec3 light_dir = normalize(vec3(0.5,1,0.3));
     
     Isect info;
-    if (!intersect_scene (ray, mint, maxt, 0, info))
+    if (!intersect_scene (ray, mint, maxt, info))
         return vec3(1);
     else
     {
@@ -383,7 +383,7 @@ vec3 integrator_Whitted
 	{
 	
         /* intersected nothing -> background */
-        if (!intersect_scene (ray, mint, maxt, 0, info))
+        if (!intersect_scene (ray, mint, maxt, info))
             return col + throughput*mix(white, blue, ray.direction.y);
         
         /* intersected an object -> add emission */
@@ -519,7 +519,7 @@ vec3 integrator_Cook
 	{
 	
         /* intersected nothing -> background */
-        if (!intersect_scene (ray, mint, maxt, 0, info))
+        if (!intersect_scene (ray, mint, maxt, info))
             return col + throughput*mix(white, blue, ray.direction.y);
         
         /* intersected an object -> add emission */
@@ -568,7 +568,7 @@ vec3 integrator_Cook
             /* bounce once more */
             ray = Ray(pos_out, dir_out);
             /* intersected nothing -> background */
-            if (!intersect_scene (ray, mint, maxt, 0, info))
+            if (!intersect_scene (ray, mint, maxt, info))
                 return col + throughput*mix(white, blue, ray.direction.y);
             else /* intersected an object -> add emission */
                 return col + throughput*info.mat.emissive;
@@ -657,7 +657,7 @@ vec3 integrator_Kajiya
 	{
 	
         /* intersected nothing -> background */
-        if (!intersect_scene(ray, mint, maxt, 0, info))
+        if (!intersect_scene(ray, mint, maxt, info))
             return col; // CHANGED: this makes background black. Statement below makes background white. 
             //return col + throughput*mix(white, blue, ray.direction.y);
         

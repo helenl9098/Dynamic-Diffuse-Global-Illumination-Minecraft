@@ -866,12 +866,11 @@ bool intersect_scene
 	(Ray       ray,  /* ray for the intersection */
 	 float     mint, /* lower bound for t */
 	 float     maxt, /* upper bound for t */
-	 int	   scene,
 	 out Isect info /* intersection data */
 	 )
 	 
 {
-	//int scene = 1; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
+	int scene = render_settings.scene; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
 	float closest_t = INF;
 	info.t = closest_t;
 	info.pos = vec3(0);

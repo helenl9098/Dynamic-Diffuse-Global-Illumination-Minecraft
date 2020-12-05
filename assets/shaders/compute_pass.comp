@@ -117,7 +117,7 @@ vec3 eval_integrator
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF, irradiance_field.probe_count, irradiance_field.side_length, render_settings.scene);
+		return integrator_binary(ray, 0, INF, irradiance_field.probe_count, irradiance_field.side_length);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:
