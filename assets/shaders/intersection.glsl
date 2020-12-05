@@ -1233,7 +1233,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
 		if (!(isectProbeDist <= mean))
         {
-			//weight *= chebyshevWeight;
+			weight *= chebyshevWeight;
 		}
 
 		// avoid zero weight
@@ -1249,27 +1249,25 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
         {
-            //weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+            weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
         }
         // scale by the trilinear weights
 		// this scales the probe contribution such that probes that are far
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		//sumIrradiance += weight * irradiance;
-		sumIrradiance += irradiance;
+		sumIrradiance += weight * irradiance;
         sumWeight += weight;
 	}
 
 	// combat the sensitive perception of very small amounts of light leaking
 	// and then recursively lighting closed rooms by losing energy with each shade
 	// this was also a uniform parameter in the supplemental code
-	float energyPreservation = 0.98;
+	float energyPreservation = 0.98f;
 
-	//vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
-	vec3 netIrradiance = sumIrradiance / 8.0;
+	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
 
-    return 0.5 * PI * netIrradiance;
+    return 0.5f * PI * netIrradiance;
 }
 
 
