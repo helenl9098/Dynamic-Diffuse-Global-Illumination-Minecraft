@@ -1190,6 +1190,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 
 	vec3 sumIrradiance = vec3(0.f);
     float sumWeight = 0.f;
+	
     vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
 
 	for (int i = 0; i < 8; i++) {
