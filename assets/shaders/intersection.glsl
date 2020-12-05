@@ -1180,6 +1180,7 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
+
 vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 {
 
@@ -1188,12 +1189,12 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
     V.direction = normalize(V.direction);	// view vector
 
 	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
-	//ivec3 baseProbeIdx = ivec3(0, 0, 0);
 
 	ivec3 minProbeIdxIF = -(probeCounts / 2);
 
 	vec3 sumIrradiance = vec3(0.f);
     float sumWeight = 0.f;
+
     vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
 
 	for (int i = 0; i < 8; i++) {
