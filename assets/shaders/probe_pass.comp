@@ -177,6 +177,21 @@ void main() {
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
+    // CHANGED: direct lighting
+
+     	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(0/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
+     	/*Isect light_info;
+   		if (intersect_scene(light_feeler, 0, INF, light_info)) {
+        	if (light_info.type == 2) {
+            	color = temp_info.mat.base_color;
+        	} else {
+            	color = temp_info.mat.base_color * 0.5;
+        	}
+    	} // end of direct lighting
+
+	    float lambert = clamp(dot(temp_info.normal, normalize(temp_info.pos - spheres[0].origin)), 0.0, 1.0);
+
+	    acc += temp_info.mat.base_color;*/
 	}
 
 

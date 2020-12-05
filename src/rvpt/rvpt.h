@@ -183,6 +183,7 @@ private:
         VK::Image probe_texture_albedo;
         VK::Image probe_texture_normals;
         VK::Image probe_texture_distance;
+        VK::Image block_texture; // HELEN: ADDED THIS
         VK::Image temporal_storage_image;
         VK::Image depth_buffer;
     };
