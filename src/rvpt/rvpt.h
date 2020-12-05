@@ -89,10 +89,10 @@ public:
 	// S_CHANGE
     struct IrradianceField
     {
-        glm::ivec3 probe_count = glm::ivec3(2, 3, 2); // number of probes in x, y, z directions
-        int side_length = 2;                          // side length of the cubes that encase the probe
-        float hysteresis = 0.98f;                     // blending coefficient
-        int sqrt_rays_per_probe = 12;                 // sqrt of the number of rays per probe. for some reason
+        glm::ivec3 probe_count = glm::ivec3(3, 5, 3); // number of probes in x, y, z directions
+        int side_length = 5;                          // side length of the cubes that encase the probe
+        float hysteresis = 0.9f;                     // blending coefficient
+        int sqrt_rays_per_probe = 25;                 // sqrt of the number of rays per probe. for some reason
                                                       // it only works with even numbers; can debug later
     };
     IrradianceField ir;
