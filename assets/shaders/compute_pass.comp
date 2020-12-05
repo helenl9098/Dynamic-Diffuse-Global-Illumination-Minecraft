@@ -57,7 +57,7 @@ layout(binding = 11) uniform IrradianceField
     int sqrt_rays_per_probe;
 } irradiance_field;
 
-
+layout(binding = 12, rgba8) uniform readonly image2D block_texture;
 
 #include "util.glsl"
 #include "camera.glsl"
@@ -117,7 +117,7 @@ vec3 eval_integrator
 	switch (integrator_idx)
 	{
 	case 0:
-		return integrator_binary(ray, 0, INF, irradiance_field.probe_count, irradiance_field.side_length, render_settings.scene);
+		return integrator_binary(ray, 0, INF, irradiance_field.probe_count, irradiance_field.side_length);
     case 1:
 		return integrator_color(ray, 0, INF);
 	case 2:

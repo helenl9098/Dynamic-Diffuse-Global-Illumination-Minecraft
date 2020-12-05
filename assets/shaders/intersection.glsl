@@ -699,7 +699,44 @@ int getBlockAt(vec3 coords, int scene) {
 	return 0;
 }
 
-vec4 getColorAt(vec3 p, int block_type) {
+vec2 getUVs(vec3 point, vec3 normal) {
+	vec2 result_uv = vec2(0, 0);
+
+	// unless the normal is straight up and down, the u in uvs is always x or z
+	if (normal[1] == 0) {
+		if (normal[0] == 0) {
+			// this means the face is pointing in the z direction (forwards and back)
+			if (sign(normal[2]) > 0) {
+				result_uv[0] = ceil(point[0]) - point[0];
+				result_uv[1] = point[1] - floor(point[1]);
+			} else { 
+				result_uv[0] = point[0] - floor(point[0]);
+				result_uv[1] = point[1] - floor(point[1]);
+			}
+		}
+		else { // this means the face is pointing in the x direction
+			if (sign(normal[0]) < 1) {
+				result_uv[0] = ceil(point[2]) - point[2];
+				result_uv[1] = point[1] - floor(point[1]);
+			} else {
+				result_uv[0] = point[2] - floor(point[2]);
+				result_uv[1] = point[1] - floor(point[1]);
+			}
+		}
+	}
+	else { // else, the us are X and the vs are Z
+		if (sign(normal[1]) < 0) {
+			result_uv[0] = point[0] - floor(point[0]);
+			result_uv[1] = ceil(point[2]) - point[2];
+		} else {
+			result_uv[0] = point[0] - floor(point[0]);
+			result_uv[1] = point[2] - floor(point[2]);
+		}
+	}
+	return result_uv;
+}
+
+vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	/* BLOCK TYPE KEY: 
 	0: EMPTY
 	1: NOISE
@@ -709,7 +746,7 @@ vec4 getColorAt(vec3 p, int block_type) {
 	5. WHITE
 	*/
  	if (block_type == 1) {
-		float r = (random1(p) / 4) + 0.1; // range of 0.3 to 0.8
+		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
 		return vec4(0.1, r, r, 1);
 	}
 	else if (block_type == 2) {
@@ -722,7 +759,9 @@ vec4 getColorAt(vec3 p, int block_type) {
 		return vec4(0, 0, 1, 1);
 	}
 	else if (block_type == 5) {
-		return vec4(1, 1, 1, 1);
+		vec2 uvs = getUVs(point, normal);
+		return vec4(uvs, 1, 1);
+		//return vec4(1, 1, 1, 1);
 	}
 }
 
@@ -749,10 +788,6 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
         if (block_type > 0) {
         	info.t = curr_t;
 
-        	Material mat = materials[1]; // TO DO: Don't hard code this
-        	mat.albedo = getColorAt(ceil(ray_origin), block_type);
-			info.mat = convert_old_material(mat);
-
 			// normal calculation
         	vec3 diff = normalize(ray_origin - pi);
         	vec3 normal = vec3(0, 0, 0);
@@ -765,7 +800,12 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
         		}
         	}
 
-        	info.normal = normal;
+        	info.normal = normalize(normal);
+
+        	Material mat = materials[1]; // TO DO: Don't hard code this
+        	mat.albedo = getColorAt(ray_origin, block_type, normalize(normal));
+			info.mat = convert_old_material(mat);
+
         	return true;
         }
     }
@@ -808,7 +848,7 @@ bool intersect_probes (
 vec3 get_light_pos_in_scene(int scene) {
 	vec3 light_pos = vec3(0);
 	if (scene == 0) {
-		light_pos = vec3(4, 17.5, 8.5) + spheres[0].origin;
+		light_pos = vec3(4, 17.5, 8.5) /*+ spheres[0].origin*/; // COMMENT THIS OUT TO STOP SPHERER FROM MOVING
 	}
 	if (scene == 1) {
 		light_pos = vec3(0, 8, 13);
@@ -826,11 +866,11 @@ bool intersect_scene
 	(Ray       ray,  /* ray for the intersection */
 	 float     mint, /* lower bound for t */
 	 float     maxt, /* upper bound for t */
-	 int	   scene,
 	 out Isect info /* intersection data */
 	 )
 	 
 {
+	int scene = render_settings.scene; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
 	float closest_t = INF;
 	info.t = closest_t;
 	info.pos = vec3(0);

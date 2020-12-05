@@ -14,12 +14,91 @@
 #include "imgui_helpers.h"
 #include "imgui_internal.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 struct DebugVertex
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec3 color;
 };
+
+uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+    {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+        {
+            return i;
+        }
+    }
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
+                  VkBufferUsageFlags usage,
+                  VkMemoryPropertyFlags properties,
+                  VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+{
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate buffer memory!");
+    }
+
+    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+}
+
+void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
+{ 
+    int texWidth, texHeight, texChannels; 
+    stbi_uc* pixels =
+    stbi_load("../img/statue.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+    VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+    if (!pixels)
+    {
+        throw std::runtime_error("failed to load texture image!");
+    }
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 stagingBuffer, stagingBufferMemory);
+
+    void* data;
+    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    stbi_image_free(pixels);
+
+}
 
 bool RVPT::PreviousFrameState::operator==(RVPT::PreviousFrameState const& right)
 {
@@ -578,7 +657,8 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
         {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (normal)
         {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
+		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
+        {12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -714,6 +794,25 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         VK::MemoryUsage::gpu
     );
 
+    // HELEN: ADDED THIS
+    auto block_texture = VK::Image(
+        vk_device, 
+        memory_allocator, 
+        *graphics_queue, 
+        "block_texture",
+        VK_FORMAT_R8G8B8A8_UNORM, 
+        VK_IMAGE_TILING_OPTIMAL, 
+        512,
+        512, 
+        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL, 
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        static_cast<VkDeviceSize>(512 * 512 * 4),
+        VK::MemoryUsage::gpu
+    );
+
+    createTextureImage(context.device.physical_device.physical_device, vk_device);
+
     auto temporal_storage_image = VK::Image(
         vk_device,
         memory_allocator,
@@ -759,6 +858,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
                                     std::move(probe_texture_albedo),
                                     std::move(probe_texture_normals),
                                     std::move(probe_texture_distance),
+                                    std::move(block_texture), // HELEN: ADDED THIS
                                     std::move(temporal_storage_image),
                                     std::move(depth_image)};
 }
@@ -857,6 +957,8 @@ void RVPT::add_per_frame_data(int index)
         std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
     // S_CHANGED
     raytracing_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
+    raytracing_descriptors.push_back(
+        std::vector{rendering_resources->block_texture.descriptor_info()}); // HELEN: CHANGED THIS
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
