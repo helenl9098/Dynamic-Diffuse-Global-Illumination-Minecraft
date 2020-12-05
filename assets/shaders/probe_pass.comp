@@ -31,7 +31,7 @@ render_settings;
 
 layout(std430, binding = 1) buffer ProbeRays { ProbeRay rays[]; };
 
-layout(binding = 2, rgba8) uniform writeonly image2D result_albedo;
+layout(binding = 2, rgba8) uniform image2D result_albedo;
 layout(binding = 3, rgba8) uniform writeonly image2D result_normals;
 layout(binding = 4, rgba8) uniform writeonly image2D result_distances;
 
@@ -179,6 +179,10 @@ void main() {
 		distances.y = distances.x * distances.x;
 	}
 
+
+	vec3 old_color = vec3(imageLoad(result_albedo, texture_coords));
+
+	color = mix(old_color, color, irradiance_field.hysteresis);
 
 	imageStore(result_albedo, texture_coords, vec4(color, 1.0));
 	imageStore(result_normals, texture_coords, vec4(normal, 0.0));

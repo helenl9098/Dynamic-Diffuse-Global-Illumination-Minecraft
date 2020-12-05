@@ -1091,33 +1091,36 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
 
 void RVPT::generate_probe_rays()
 {
-    // Need to integrate this with the probe class (should it exist)
-    std::vector<glm::vec3> probes;
-    probes.push_back(glm::vec3(1.5, 0.5, 0));
-    probes.push_back(glm::vec3(4.5, 0.5, 0));
-    probes.push_back(glm::vec3(6.5, 0.5, 0));
-    probes.push_back(glm::vec3(8.5, 2.5, 10));
-    probes.emplace_back(glm::vec3(1.5, 2.5, 10));
-    probes.emplace_back(glm::vec3(1.5, 4.5, 10));
-    probes.emplace_back(glm::vec3(1.5, 6.5, 10));
-    probes.emplace_back(glm::vec3(1.5, 8.5, 10));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 12));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 14));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 16));
-    probes.emplace_back(glm::vec3(1.5, 10.5, 20));
 
+    // Generate uniform samples
     std::vector<glm::vec3> samples;
     generate_samples(samples, ir.sqrt_rays_per_probe);
 
-    for (int p_index = 0; p_index < probes.size(); p_index++)
+    glm::ivec3 dim = ir.probe_count;
+    int offset = ir.side_length;
+
+    int num_probes = dim.x * dim.y * dim.z;
+
+    for (int p_index = 0; p_index < num_probes; p_index++)
     {
-        glm::vec3 p = probes[p_index];
+        int py = p_index / (ir.probe_count.x * ir.probe_count.z);
+        
+        int leftover = p_index - (py * ir.probe_count.x * ir.probe_count.z);
+        int pz = leftover / ir.probe_count.x;
+        
+        int px = leftover - pz * ir.probe_count.x;
+
+        glm::ivec3 probe_index_3d(px, py, pz);
+
+        glm::vec3 origin = probe_index_3d - ((dim - glm::ivec3(1)) / 2);
+
+        origin *= offset;
 
         int x = 0, y = 0;
 
         for (int i = 0; i < samples.size(); i++)
         {
-            probe_rays.emplace_back(ProbeRay(p,
+            probe_rays.emplace_back(ProbeRay(origin,
                                              glm::normalize(samples[i]),
                                              p_index,
                                              glm::vec2(x, y)));
