@@ -44,6 +44,11 @@ vec3 integrator_binary
     if (!intersect_scene(ray, mint, maxt, info))
         return col;
 
+
+
+    vec3 indirectLighting = get_diffuse_gi(info, probeCounts, sideLength, ray);
+
+
     Isect temp_info;
 	
 	// Probes visualization here
@@ -64,7 +69,6 @@ vec3 integrator_binary
             return vec3(0, 1, 1); // probe color here
         }
     }
-	
 	
     // CHANGED: direct lighting
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
