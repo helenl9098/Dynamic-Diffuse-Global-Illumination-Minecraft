@@ -79,10 +79,12 @@ vec3 integrator_binary
             float lambert = clamp(dot(normalize(info.normal),
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
-            return info.mat.base_color * lambert + indirectLighting;
+            //return (info.mat.base_color * lambert * indirectLighting);
+            return indirectLighting;
         } else {
             //return info.mat.base_color / 10.0;
-            return vec3(0) + indirectLighting;
+            //return (vec3(0) * indirectLighting);
+            return indirectLighting;
         }
     } // end of direct lighting
 
