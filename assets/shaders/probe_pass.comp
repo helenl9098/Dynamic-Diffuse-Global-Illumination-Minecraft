@@ -152,6 +152,39 @@ ivec2 get_texture_coords_of_probe_index(int index) {
 	return ivec2(x_probe, y_probe) * irradiance_field.sqrt_rays_per_probe;
 }
 
+#define TWO_PI            6.2831853071795864769252867665590057683943f
+#define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
+
+vec3 calculateRandomDirectionInHemisphere(vec3 normal) {
+    float up = sqrt(rand()); // cos(theta)
+    float over = sqrt(1 - up * up); // sin(theta)
+    float around = rand() * TWO_PI;
+
+    // Find a direction that is not the normal based off of whether or not the
+    // normal's components are all equal to sqrt(1/3) or whether or not at
+    // least one component is less than sqrt(1/3). Learned this trick from
+    // Peter Kutz.
+
+    vec3 directionNotNormal;
+    if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
+        directionNotNormal = vec3(1, 0, 0);
+    } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
+        directionNotNormal = vec3(0, 1, 0);
+    } else {
+        directionNotNormal = vec3(0, 0, 1);
+    }
+
+    // Use not-normal direction to generate two perpendicular directions
+    vec3 perpendicularDirection1 =
+        normalize(cross(normal, directionNotNormal));
+    vec3 perpendicularDirection2 =
+        normalize(cross(normal, perpendicularDirection1));
+
+    return up * normal
+        + cos(around) * over * perpendicularDirection1
+        + sin(around) * over * perpendicularDirection2;
+}
+
 void main() {
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;
@@ -161,7 +194,7 @@ void main() {
 
 	int num_rays_per_probe = irradiance_field.sqrt_rays_per_probe
 								* irradiance_field.sqrt_rays_per_probe;
-	Isect temp_info;
+	Isect first_hit_info;
 	ProbeRay probe_ray = rays[index];
 	Ray r = Ray(probe_ray.origin, probe_ray.direction);
 	
@@ -173,11 +206,19 @@ void main() {
 	vec3 normal = vec3(0.0);
 	vec2 distances = vec2(0.0);
 	
-	if(intersect_scene(r, 0, INF, temp_info)) {
-		color = temp_info.mat.base_color;
-		normal = temp_info.normal;
-		distances.x = length(temp_info.pos - r.origin);
+	if(intersect_scene(r, 0, INF, first_hit_info)) {
+
+	// test with more than just material color; bounce ray
+
+		color = first_hit_info.mat.base_color;
+		normal = first_hit_info.normal;
+		distances.x = length(first_hit_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
+
+		Isect next_hit_info;
+
+
+
    		 // CHANGED: direct lighting
 
      	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
@@ -197,6 +238,11 @@ void main() {
 
 
 	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
+
+	// for each ray
+	// get ray direction
+	// takes a 2d into a sphere coord
+	// texel direction ?
 
 	color = mix(old_color, color, irradiance_field.hysteresis);
 
