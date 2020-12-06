@@ -866,6 +866,64 @@ vec3 get_light_pos_in_scene(int scene) {
 	return light_pos;
 }
 
+ivec2 get_text_coord_from_probe_number(int probe_number) {
+
+	int x_dim = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
+
+	if (probe_number < 0 || x_dim < 0) {
+		return ivec2(-1, -1);
+	}
+	ivec2 result = ivec2(-1, -1);	
+	result[0] = int(mod(probe_number, x_dim));
+	result[1] = int(floor(probe_number / x_dim));
+
+	if (result[1] >= irradiance_field.probe_count.y) {
+		return ivec2(-1, -1);
+	}
+	return result * irradiance_field.sqrt_rays_per_probe;
+}
+
+vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
+
+    // 1. Find where in the texture to sample
+	// this is the top left corner of the n * n square that 
+	// represents th probe in the texture
+	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
+
+	
+	// from the looks of things, they use the isect point's normal as the direction to sample
+	// on the probe 
+	vec3 irradiance_dir = normalize(info.normal);
+
+	// need to change irradiance direction into a texture coord (relative to top left corner)
+    // TO DO: Find texture coord
+    ivec2 relative_text_coords = ivec2(0, 0);
+    // float z = 1 - (2 * sample.x);
+    // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
+    relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
+
+
+    //relative_text_coords[y]
+
+	// once I find the irradiance direction texture coord I add it to the top corner
+	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
+
+	// now I sample the image from these coords
+	// TO DO: Specify which probe image to sample
+	if (texture_to_sample == 0) {
+		vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
+	} 
+	else if (texture_to_sample == 1) {
+		vec3 result = imageLoad(probe_image_distances, sample_text_coord).xyz;
+	}
+	else if (texture_to_sample == 2) {
+		vec3 result = imageLoad(probe_image_normals, sample_text_coord).xyz;
+	}
+
+	// return result;
+	return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
+}
+
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene
