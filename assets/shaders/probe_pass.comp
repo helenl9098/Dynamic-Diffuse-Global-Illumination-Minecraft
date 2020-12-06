@@ -196,7 +196,7 @@ void main() {
 	}
 
 
-	vec3 old_color = vec3(imageLoad(result_albedo, texture_coords));
+	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
 
 	color = mix(old_color, color, irradiance_field.hysteresis);
 
