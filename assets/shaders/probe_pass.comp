@@ -178,7 +178,7 @@ void main() {
 		normal = temp_info.normal;
 		distances.x = length(temp_info.pos - r.origin);
 		distances.y = distances.x * distances.x;
-    // CHANGED: direct lighting
+   		 // CHANGED: direct lighting
 
      	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
      	/*Isect light_info;

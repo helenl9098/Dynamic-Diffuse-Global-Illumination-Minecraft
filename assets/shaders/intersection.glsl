@@ -68,7 +68,9 @@ struct Isect
 	vec3  normal; /* normal in global coordinates */
 	vec2  uv;     /* surface parametrization (for textures) */
 	Material_new mat;
-	int type; 
+	int type;     /* 0/1 if no intersection,
+					 2   if it's a light
+					 3   if it's any block */
 }; /* Isect */
 
 /*--------------------------------------------------------------------------*/
@@ -763,9 +765,9 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(0, 0, 1, 1);
 	}
 	else if (block_type == 5) {
-		vec2 uvs = getUVs(point, normal);
-		return vec4(uvs, 1, 1);
-		//return vec4(1, 1, 1, 1);
+		//vec2 uvs = getUVs(point, normal);
+		//return vec4(uvs, 1, 1);
+		return vec4(1, 1, 1, 1);
 	}
 }
 

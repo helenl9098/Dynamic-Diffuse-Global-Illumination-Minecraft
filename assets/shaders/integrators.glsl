@@ -67,13 +67,16 @@ vec3 integrator_binary
 	
 	
     // CHANGED: direct lighting
-    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
+    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (temp_info.type == 2) {
-            return info.mat.base_color;
+            float lambert = clamp(dot(normalize(info.normal),
+                                      normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
+                                  0.0, 1.0);
+            return info.mat.base_color * lambert;
         } else {
-            return info.mat.base_color / 10.0;
-            //return vec3(0);
+            //return info.mat.base_color / 10.0;
+            return vec3(0);
         }
     } // end of direct lighting
 

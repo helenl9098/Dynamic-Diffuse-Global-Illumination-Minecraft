@@ -812,7 +812,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         VK::MemoryUsage::gpu
     );
 
-    createTextureImage(context.device.physical_device.physical_device, vk_device);
+    //createTextureImage(context.device.physical_device.physical_device, vk_device);
 
     auto temporal_storage_image = VK::Image(
         vk_device,
