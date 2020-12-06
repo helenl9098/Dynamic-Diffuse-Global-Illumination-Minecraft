@@ -69,6 +69,7 @@ vec3 integrator_binary
     // CHANGED: direct lighting
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
+
         if (temp_info.type == 2) {
             float lambert = clamp(dot(normalize(info.normal),
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
