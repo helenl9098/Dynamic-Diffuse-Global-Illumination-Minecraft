@@ -1174,6 +1174,99 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
+
+vec3 get_sample(int probeIdx, vec3 dir, int textureTgt) { return vec3(0.f); }
+
+vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
+{
+
+	vec3 pos = info.pos;
+    vec3 N = info.normal;
+    V.direction = normalize(V.direction);	// view vector
+
+	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
+
+	ivec3 minProbeIdxIF = -(probeCounts / 2);
+
+	vec3 sumIrradiance = vec3(0.f);
+    float sumWeight = 0.f;
+    vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
+
+	for (int i = 0; i < 8; i++) {
+        ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+        vec3 probePos = vec3(round((baseProbeIdx + offset) * sideLength));
+        ivec3 probeIdx3D = ivec3(probePos / float(sideLength)) - minProbeIdxIF;
+        int probeIdx1D = probeIdx3D.x + probeIdx3D.z * probeCounts.x + probeIdx3D.y * probeCounts.x * probeCounts.z;
+
+		vec3 dir = normalize(probePos - pos);
+
+		vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+
+		// smooth backface test
+		// all of these extra constants are supposed to prevent the weight
+		// from going to zero
+        float temp = max(0.0001, (dot(dir, N) + 1.0) * 0.5);
+		// small addition term is supposed to prevent the weight from going to zero
+        float weight = temp * temp + 0.2;
+
+		// moment-visibility test
+		// variance shadow map test
+		// will need another texture to store the mean and teh mean squared
+		// the author also linked a paper for that as well
+        float isectProbeDist = length(pos - probePos);
+		// sample form meanMeanSquared
+        vec2 mms = get_sample(probeIdx1D, -dir, 0).rg;
+
+        float mean = mms.x;
+        float variance = abs(mean * mean - mms.y);
+
+		temp = max(isectProbeDist - mean, 0.0);
+        float chebyshevWeight = variance / (variance + temp * temp);
+
+        // increase contrast in the weight
+        chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
+		if (!(isectProbeDist <= mean))
+        {
+			weight *= chebyshevWeight;
+		}
+
+		// avoid zero weight
+        weight = max(0.000001, weight);
+
+		// sample from irradaince texture
+		// this will also need to be made and evaluated using the other paper
+		// that the author referenced
+        vec3 irradiance = get_sample(probeIdx1D, N, 1).rgb;
+
+		// amplifies dim lighting contributions to mimic the human visual
+		// system's sensitivity to low light conditions
+        const float crushThreshold = 0.2f;
+        if (weight < crushThreshold)
+        {
+            weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+        }
+        // scale by the trilinear weights
+		// this scales the probe contribution such that probes that are far
+		// away contribute the least
+        weight *= trilinear.x * trilinear.y * trilinear.z;
+
+		sumIrradiance += weight * irradiance;
+        sumWeight += weight;
+	}
+
+	// combat the sensitive perception of very small amounts of light leaking
+	// and then recursively lighting closed rooms by losing energy with each shade
+	// this was also a uniform parameter in the supplemental code
+	float energyPreservation = 0.98f;
+
+	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+
+    return 0.5f * PI * netIrradiance;
+}
+
+
+
+
 /*--------------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------------*/
