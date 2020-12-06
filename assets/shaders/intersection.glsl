@@ -889,7 +889,6 @@ vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
 	// this is the top left corner of the n * n square that 
 	// represents th probe in the texture
 	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
-
 	
 	// from the looks of things, they use the isect point's normal as the direction to sample
 	// on the probe 
@@ -902,8 +901,10 @@ vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
     relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
 
-
-    //relative_text_coords[y]
+    // float x = cos(2* pi * sample.y) * sqrt(1 - (z * z));
+    // y = (acos(x / (sqrt(1 - (z * z)))) / (2 * pi)) * sqrt_num_rays
+    float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
+    relative_text_coords[1] = int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
 
 	// once I find the irradiance direction texture coord I add it to the top corner
 	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
@@ -920,8 +921,8 @@ vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
 		vec3 result = imageLoad(probe_image_normals, sample_text_coord).xyz;
 	}
 
-	// return result;
-	return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
+	return result;
+	//return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
 }
 
 /*--------------------------------------------------------------------------*/
