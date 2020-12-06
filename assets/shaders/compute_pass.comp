@@ -55,6 +55,7 @@ layout(binding = 11) uniform IrradianceField
     int side_length;
     float hysteresis;
     int sqrt_rays_per_probe;
+    vec3 field_origin;
 } irradiance_field;
 
 layout(binding = 12, rgba8) uniform readonly image2D block_texture;
@@ -230,5 +231,5 @@ void main()
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
     imageStore(temporal_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
-    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(probe, 0));
+    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 0));
 }

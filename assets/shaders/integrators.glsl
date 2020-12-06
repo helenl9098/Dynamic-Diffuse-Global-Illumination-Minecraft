@@ -47,11 +47,11 @@ vec3 integrator_binary
     Isect temp_info;
 	
 	// Probes visualization here
-	/*
+	
     vec3 probePos = vec3(0);
 	vec3 tgtPos = vec3(2, 2, 2);
 	ivec3 tgtBox = ivec3(floor(tgtPos / float(sideLength)));
-	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info, probePos)) {
+	if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info, probePos, irradiance_field.field_origin)) {
         if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
 			for (int i = 0; i < 8; i++) {
 				ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
@@ -61,10 +61,10 @@ vec3 integrator_binary
 					break;
 				}
 			}
-            return vec3(1, 1, 0); // probe color here
+            return vec3(0, 1, 1); // probe color here
         }
     }
-	*/
+	
 	
     // CHANGED: direct lighting
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection

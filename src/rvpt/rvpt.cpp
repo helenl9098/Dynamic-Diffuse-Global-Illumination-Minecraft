@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <iostream>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -169,7 +170,7 @@ bool RVPT::initialize()
 }
 bool RVPT::update()
 {
-    spheres[0].origin.y -= 0.01f;
+    //spheres[0].origin.y -= 0.01f;
     auto camera_data = scene_camera.get_data();
 
     render_settings.camera_mode = scene_camera.get_camera_mode();
@@ -1176,24 +1177,28 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
     {
         for (int x = 0; x < sqrt_num_rays; x++)
         {
+            
             // First generate uniform sample
             glm::vec2 sample(x * inv_sqrt,
                              y * inv_sqrt);
+
+            sample += inv_sqrt / 2.0f;
             
             // Then map to a sphere
             float z = 1 - (2 * sample.x);
             glm::vec3 sphere_sample(cosf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)),
                                     sinf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)), z);
-            
+
             output[i] = sphere_sample;
             i++;
         }
     }
 }
 
+// Generate probe rays algorithmically from the
+// probe positions in the irradiance field.
 void RVPT::generate_probe_rays()
 {
-
     // Generate uniform samples
     std::vector<glm::vec3> samples;
     generate_samples(samples, ir.sqrt_rays_per_probe);
@@ -1214,15 +1219,17 @@ void RVPT::generate_probe_rays()
 
         glm::ivec3 probe_index_3d(px, py, pz);
 
-        glm::vec3 origin = probe_index_3d - ((dim - glm::ivec3(1)) / 2);
+        glm::vec3 probe_origin = probe_index_3d - ((dim - glm::ivec3(1)) / 2);
 
-        origin *= offset;
+        probe_origin *= offset;
+        
+        probe_origin += ir.field_origin;
 
         int x = 0, y = 0;
 
         for (int i = 0; i < samples.size(); i++)
         {
-            probe_rays.emplace_back(ProbeRay(origin,
+            probe_rays.emplace_back(ProbeRay(probe_origin,
                                              glm::normalize(samples[i]),
                                              p_index,
                                              glm::vec2(x, y)));
