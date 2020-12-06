@@ -75,9 +75,9 @@ vec3 integrator_binary
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - info.pos)); // this is just a hack so the light feeler ray can be caluclated by the get intersection
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (temp_info.type == 2) {
-            return info.mat.base_color;
+            return info.mat.base_color + indirectLighting;
         } else {
-            return info.mat.base_color / 10.0;
+            return info.mat.base_color / 10.0 + indirectLighting;
             //return vec3(0);
         }
     } // end of direct lighting

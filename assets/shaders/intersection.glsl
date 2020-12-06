@@ -1150,11 +1150,23 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// the author also linked a paper for that as well
         float isectProbeDist = length(pos - probePos);
 		// sample form meanMeanSquared
-        vec2 mMS = get_sample(probeIdx1D, -dir, 0).rg;
+        vec2 mms = get_sample(probeIdx1D, -dir, 0).rg;
+
+        float mean = mms.x;
+        float variance = abs(mean * mean - mms.y);
+
+		temp = max(isectProbeDist - mean, 0.0);
+        float chebyshevWeight = variance / (variance + temp * temp);
+
+        // increase contrast in the weight
+        chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
+		if (!(isectProbeDist <= mean))
+        {
+			weight *= chebyshevWeight;
+		}
 
 		// avoid zero weight
         weight = max(0.000001, weight);
-
 
 		// sample from irradaince texture
 		// this will also need to be made and evaluated using the other paper
