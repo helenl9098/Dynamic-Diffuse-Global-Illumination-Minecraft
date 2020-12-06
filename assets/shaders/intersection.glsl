@@ -484,15 +484,17 @@ float opRep(in vec3 p, in vec3 c)
 float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
 	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
+	//probeOrigin += field_origin;
+	
 	probePos = probeOrigin;
 	
     vec3 q = p-probeOrigin;
-    return sdSphere(q, 0.05); // probe radius here
+    return sdSphere(q, 0.5); // probe radius here
 }
 
-float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos) {
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos, vec3 field_origin) {
 
-	return opRepLim(point, sideLength, vec3(probeCount / 2), probePos);
+	return opRepLim(point - field_origin, sideLength, vec3(probeCount / 2), probePos);
 }
 
 vec3 estimateNormal(vec3 pos, ivec3 probeCount, float sideLength) {
@@ -501,19 +503,21 @@ vec3 estimateNormal(vec3 pos, ivec3 probeCount, float sideLength) {
     vec3 normal = vec3(0);
 
 	vec3 temp = vec3(0);
-    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z), probeCount, sideLength, temp)
-              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z), probeCount, sideLength, temp);
-    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z), probeCount, sideLength, temp)
-              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z), probeCount, sideLength, temp);
-    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon), probeCount, sideLength, temp)
-              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon), probeCount, sideLength, temp);
+    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0))
+              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0));
+    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z), probeCount, sideLength, temp, vec3(0))
+              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z), probeCount, sideLength, temp, vec3(0));
+    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon), probeCount, sideLength, temp, vec3(0))
+              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon), probeCount, sideLength, temp, vec3(0));
 
     return normalize(normal);
 }
 
 
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength, out Isect info, out vec3 probePos) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount,
+					  float sideLength, out Isect info, out vec3 probePos,
+					  vec3 field_origin) {
 
 // start of signed distance
 	vec3 ray_origin = ray.origin;
@@ -525,7 +529,7 @@ bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float s
 	while (curr_t < (100)) {
 
 		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point, probeCount, sideLength, probePos);
+		float dist = sceneSDF(point, probeCount, sideLength, probePos, field_origin);
 
 		if (dist < 0.001) {
 			info.t = curr_t;
@@ -655,11 +659,11 @@ int getBlockAt(vec3 coords, int scene) {
 			} 
 		}
 
-		if (abs(coords.x + 4) < 3 && abs(coords.y + 7) < 3 && abs(coords.z -13) < 3) {
+		if (abs(coords.x + 3) < 3 && abs(coords.y + 7) < 3 && abs(coords.z -13) < 3) {
 				return 4;
 		}
 
-		if (abs(coords.x - 3) < 3 && abs(coords.y + 4) < 6 && abs(coords.z -16) < 3) {
+		if (abs(coords.x - 4) < 3 && abs(coords.y + 4) < 6 && abs(coords.z -16) < 3) {
 				return 4;
 		} 
 	}
@@ -781,7 +785,8 @@ bool intersect_probes (
 	 ivec3 probeCount,
 	 float sideLength,
 	 out Isect info, /* intersection data */ 
-	 out vec3 probePos
+	 out vec3 probePos,
+	 vec3 field_origin
 	 )
 {
 	float closest_t = INF;
@@ -790,7 +795,7 @@ bool intersect_probes (
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect, probePos)) {
+	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect, probePos, field_origin)) {
 		info = temp_isect;
 		closest_t = info.t;
 
