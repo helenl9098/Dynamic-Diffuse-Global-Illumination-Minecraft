@@ -1180,7 +1180,6 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
-
 vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 {
 
@@ -1189,6 +1188,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
     V.direction = normalize(V.direction);	// view vector
 
 	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
+	//ivec3 baseProbeIdx = ivec3(0, 0, 0);
 
 	ivec3 minProbeIdxIF = -(probeCounts / 2);
 
@@ -1233,7 +1233,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
 		if (!(isectProbeDist <= mean))
         {
-			weight *= chebyshevWeight;
+			//weight *= chebyshevWeight;
 		}
 
 		// avoid zero weight
@@ -1249,25 +1249,27 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
         {
-            weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+            //weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
         }
         // scale by the trilinear weights
 		// this scales the probe contribution such that probes that are far
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		sumIrradiance += weight * irradiance;
+		//sumIrradiance += weight * irradiance;
+		sumIrradiance += irradiance;
         sumWeight += weight;
 	}
 
 	// combat the sensitive perception of very small amounts of light leaking
 	// and then recursively lighting closed rooms by losing energy with each shade
 	// this was also a uniform parameter in the supplemental code
-	float energyPreservation = 0.98f;
+	float energyPreservation = 0.98;
 
-	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	//vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	vec3 netIrradiance = sumIrradiance / 8.0;
 
-    return 0.5f * PI * netIrradiance;
+    return 0.5 * PI * netIrradiance;
 }
 
 
