@@ -866,6 +866,70 @@ vec3 get_light_pos_in_scene(int scene) {
 	return light_pos;
 }
 
+ivec2 get_text_coord_from_probe_number(int probe_number) {
+
+	int x_dim = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
+
+	if (probe_number < 0 || x_dim < 0) {
+		return ivec2(-1, -1);
+	}
+	ivec2 result = ivec2(-1, -1);	
+	result[0] = int(mod(probe_number, x_dim));
+	result[1] = int(floor(probe_number / x_dim));
+
+	if (result[1] >= irradiance_field.probe_count.y) {
+		return ivec2(-1, -1);
+	}
+	return result * irradiance_field.sqrt_rays_per_probe;
+}
+
+vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
+
+    // 1. Find where in the texture to sample
+	// this is the top left corner of the n * n square that 
+	// represents th probe in the texture
+	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
+	if (top_corner_text_coords == ivec2(-1, -1)) {
+		return vec3(0, 0, 0);
+	}
+	
+	// from the looks of things, they use the isect point's normal as the sample_probe(int probe_number, vec3 dir, int texture_to_sample) direction to sample
+	// on the probe 
+	vec3 irradiance_dir = normalize(dir);
+
+	// need to change irradiance direction into a texture coord (relative to top left corner)
+    // TO DO: Find texture coord
+    ivec2 relative_text_coords = ivec2(0, 0);
+    // float z = 1 - (2 * sample.x);
+    // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
+    relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
+
+    // float x = cos(2* pi * sample.y) * sqrt(1 - (z * z));
+    // y = (acos(x / (sqrt(1 - (z * z)))) / (2 * pi)) * sqrt_num_rays
+    float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
+    relative_text_coords[1] = int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
+
+	// once I find the irradiance direction texture coord I add it to the top corner
+	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
+
+	// now I sample the image from these coords
+	// TO DO: Specify which probe image to sample
+	vec3 result = vec3(0, 0, 0);
+	if (texture_to_sample == 0) {
+		result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
+	} 
+	else if (texture_to_sample == 1) {
+		result = imageLoad(probe_image_distances, sample_text_coord).xyz;
+	}
+	else if (texture_to_sample == 2) {
+		result = imageLoad(probe_image_normals, sample_text_coord).xyz;
+	}
+
+	return result;
+	//return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
+	//return vec3(1, 0.5, 0);
+}
+
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene
@@ -1115,6 +1179,100 @@ bool intersect_cubes_scene
 	return closest_t<INF;
 	
 } /* intersect_scene */
+
+vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
+{
+
+	vec3 pos = info.pos;
+    vec3 N = info.normal;
+    V.direction = normalize(V.direction);	// view vector
+
+	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
+	//ivec3 baseProbeIdx = ivec3(0, 0, 0);
+
+	ivec3 minProbeIdxIF = -(probeCounts / 2);
+
+	vec3 sumIrradiance = vec3(0.f);
+    float sumWeight = 0.f;
+    vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
+
+	for (int i = 0; i < 8; i++) {
+        ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+        vec3 probePos = vec3(round((baseProbeIdx + offset) * sideLength));
+        ivec3 probeIdx3D = ivec3(probePos / float(sideLength)) - minProbeIdxIF;
+        int probeIdx1D = probeIdx3D.x + probeIdx3D.z * probeCounts.x + probeIdx3D.y * probeCounts.x * probeCounts.z;
+
+		vec3 dir = normalize(probePos - pos);
+
+		vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+
+		// smooth backface test
+		// all of these extra constants are supposed to prevent the weight
+		// from going to zero
+        float temp = max(0.0001, (dot(dir, N) + 1.0) * 0.5);
+		// small addition term is supposed to prevent the weight from going to zero
+        float weight = temp * temp + 0.2;
+
+		// moment-visibility test
+		// variance shadow map test
+		// will need another texture to store the mean and teh mean squared
+		// the author also linked a paper for that as well
+        float isectProbeDist = length(pos - probePos);
+		// sample form meanMeanSquared
+
+        vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
+
+        float mean = mms.x;
+        float variance = abs(mean * mean - mms.y);
+
+		temp = max(isectProbeDist - mean, 0.0);
+        float chebyshevWeight = variance / (variance + temp * temp);
+
+        // increase contrast in the weight
+        chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
+		if (!(isectProbeDist <= mean))
+        {
+			//weight *= chebyshevWeight;
+		}
+
+		// avoid zero weight
+        weight = max(0.000001, weight);
+
+		// sample from irradaince texture
+		// this will also need to be made and evaluated using the other paper
+		// that the author referenced
+        vec3 irradiance = sample_probe(probeIdx1D, N, 0).rgb;
+
+		// amplifies dim lighting contributions to mimic the human visual
+		// system's sensitivity to low light conditions
+        const float crushThreshold = 0.2;
+        if (weight < crushThreshold)
+        {
+            //weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+        }
+        // scale by the trilinear weights
+		// this scales the probe contribution such that probes that are far
+		// away contribute the least
+        weight *= trilinear.x * trilinear.y * trilinear.z;
+
+		//sumIrradiance += weight * irradiance;
+		sumIrradiance += irradiance;
+        sumWeight += weight;
+	}
+
+	// combat the sensitive perception of very small amounts of light leaking
+	// and then recursively lighting closed rooms by losing energy with each shade
+	// this was also a uniform parameter in the supplemental code
+	float energyPreservation = 0.98;
+
+	//vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	vec3 netIrradiance = sumIrradiance / 8.0;
+
+    return 0.5 * PI * netIrradiance;
+}
+
+
+
 
 /*--------------------------------------------------------------------------*/
 

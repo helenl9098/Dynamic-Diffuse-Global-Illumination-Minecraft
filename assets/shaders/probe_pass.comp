@@ -31,9 +31,9 @@ render_settings;
 
 layout(std430, binding = 1) buffer ProbeRays { ProbeRay rays[]; };
 
-layout(binding = 2, rgba8) uniform image2D result_albedo;
-layout(binding = 3, rgba8) uniform writeonly image2D result_normals;
-layout(binding = 4, rgba8) uniform writeonly image2D result_distances;
+layout(binding = 2, rgba8) uniform image2D probe_image_albedo;
+layout(binding = 3, rgba8) uniform image2D probe_image_normals;
+layout(binding = 4, rgba8) uniform image2D probe_image_distances;
 
 layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
 layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
@@ -237,7 +237,7 @@ void main() {
 	}
 
 
-	vec3 old_color = vec3(imageLoad(result_albedo, texture_coords));
+	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
 
 	// for each ray
 	// get ray direction
@@ -246,8 +246,7 @@ void main() {
 
 	color = mix(old_color, color, irradiance_field.hysteresis);
 
-	imageStore(result_albedo, texture_coords, vec4(color, 1.0));
-	imageStore(result_normals, texture_coords, vec4(normal, 0.0));
-	imageStore(result_distances, texture_coords, vec4(distances, 0.0, 0.0));
-	
+	imageStore(probe_image_albedo, texture_coords, vec4(color, 1.0));
+	imageStore(probe_image_normals, texture_coords, vec4(normal, 0.0));
+	imageStore(probe_image_distances, texture_coords, vec4(distances, 0.0, 0.0));
 }
