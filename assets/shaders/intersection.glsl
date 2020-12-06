@@ -883,16 +883,19 @@ ivec2 get_text_coord_from_probe_number(int probe_number) {
 	return result * irradiance_field.sqrt_rays_per_probe;
 }
 
-vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
+vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
     // 1. Find where in the texture to sample
 	// this is the top left corner of the n * n square that 
 	// represents th probe in the texture
 	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
+	if (top_corner_text_coords == ivec2(-1, -1)) {
+		return vec3(0, 0, 0);
+	}
 	
-	// from the looks of things, they use the isect point's normal as the direction to sample
+	// from the looks of things, they use the isect point's normal as the sample_probe(int probe_number, vec3 dir, int texture_to_sample) direction to sample
 	// on the probe 
-	vec3 irradiance_dir = normalize(info.normal);
+	vec3 irradiance_dir = normalize(dir);
 
 	// need to change irradiance direction into a texture coord (relative to top left corner)
     // TO DO: Find texture coord
@@ -911,18 +914,20 @@ vec3 sample_probe(int probe_number, Isect info, int texture_to_sample) {
 
 	// now I sample the image from these coords
 	// TO DO: Specify which probe image to sample
+	vec3 result = vec3(0, 0, 0);
 	if (texture_to_sample == 0) {
-		vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
+		result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
 	} 
 	else if (texture_to_sample == 1) {
-		vec3 result = imageLoad(probe_image_distances, sample_text_coord).xyz;
+		result = imageLoad(probe_image_distances, sample_text_coord).xyz;
 	}
 	else if (texture_to_sample == 2) {
-		vec3 result = imageLoad(probe_image_normals, sample_text_coord).xyz;
+		result = imageLoad(probe_image_normals, sample_text_coord).xyz;
 	}
 
 	return result;
 	//return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
+	//return vec3(1, 0.5, 0);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1175,9 +1180,6 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
-
-vec3 get_sample(int probeIdx, vec3 dir, int textureTgt) { return vec3(0.f); }
-
 vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 {
 
@@ -1186,6 +1188,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
     V.direction = normalize(V.direction);	// view vector
 
 	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
+	//ivec3 baseProbeIdx = ivec3(0, 0, 0);
 
 	ivec3 minProbeIdxIF = -(probeCounts / 2);
 
@@ -1217,7 +1220,8 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// the author also linked a paper for that as well
         float isectProbeDist = length(pos - probePos);
 		// sample form meanMeanSquared
-        vec2 mms = get_sample(probeIdx1D, -dir, 0).rg;
+
+        vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
 
         float mean = mms.x;
         float variance = abs(mean * mean - mms.y);
@@ -1229,7 +1233,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
 		if (!(isectProbeDist <= mean))
         {
-			weight *= chebyshevWeight;
+			//weight *= chebyshevWeight;
 		}
 
 		// avoid zero weight
@@ -1238,32 +1242,34 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// sample from irradaince texture
 		// this will also need to be made and evaluated using the other paper
 		// that the author referenced
-        vec3 irradiance = get_sample(probeIdx1D, N, 1).rgb;
+        vec3 irradiance = sample_probe(probeIdx1D, N, 0).rgb;
 
 		// amplifies dim lighting contributions to mimic the human visual
 		// system's sensitivity to low light conditions
-        const float crushThreshold = 0.2f;
+        const float crushThreshold = 0.2;
         if (weight < crushThreshold)
         {
-            weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+            //weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
         }
         // scale by the trilinear weights
 		// this scales the probe contribution such that probes that are far
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		sumIrradiance += weight * irradiance;
+		//sumIrradiance += weight * irradiance;
+		sumIrradiance += irradiance;
         sumWeight += weight;
 	}
 
 	// combat the sensitive perception of very small amounts of light leaking
 	// and then recursively lighting closed rooms by losing energy with each shade
 	// this was also a uniform parameter in the supplemental code
-	float energyPreservation = 0.98f;
+	float energyPreservation = 0.98;
 
-	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	//vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	vec3 netIrradiance = sumIrradiance / 8.0;
 
-    return 0.5f * PI * netIrradiance;
+    return 0.5 * PI * netIrradiance;
 }
 
 
