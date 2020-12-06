@@ -44,10 +44,12 @@ vec3 integrator_binary
     if (!intersect_scene(ray, mint, maxt, info))
         return col;
 
-
-
-    vec3 indirectLighting = get_diffuse_gi(info, probeCounts, sideLength, ray);
-
+    vec3 indirectLighting = vec3(0);
+    if (all(greaterThanEqual(info.pos, -probeCounts * sideLength / 2)) &&
+        all(lessThan(info.pos, probeCounts * sideLength / 2)))
+    {
+        indirectLighting = get_diffuse_gi(info, probeCounts, sideLength, ray);
+    }
 
     Isect temp_info;
 	
