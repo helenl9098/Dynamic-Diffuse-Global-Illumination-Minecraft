@@ -1164,6 +1164,41 @@ void RVPT::add_triangle(Triangle triangle)
 
 #define PI 3.1415926
 
+
+/**  Generate a spherical fibonacci point. (Taken from the paper)
+
+    http://lgdv.cs.fau.de/publications/publication/Pub.2015.tech.IMMD.IMMD9.spheri/
+
+    To generate a nearly uniform point distribution on the unit sphere of size N, do
+    for (float i = 0.0; i < N; i += 1.0) {
+        float3 point = sphericalFibonacci(i,N);
+    }
+
+    The points go from z = +1 down to z = -1 in a spiral. To generate samples on the +z hemisphere,
+    just stop before i > N/2.
+
+*/
+
+#define madfrac(A, B) ((A) * (B)-floor((A) * (B)))
+
+glm::vec3 sphericalFibonacci(float i, float n)
+{
+    /*const float PHI = sqrt(5) * 0.5 + 0.5;
+    float phi = 2.0 * PI * madfrac(i, PHI - 1);
+    float cosTheta = 1.0 - (2.0 * i + 1.0) * (1.0 / n);
+    float sinTheta = sqrt(saturate(1.0 - cosTheta * cosTheta));
+
+    return Vector3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);*/
+
+    int i_this = i + 0.5;
+    float phi = acos(1 - 2 * i_this / n);
+    float golden_ratio = (1 + 5 * 0.5) / 2;
+    float theta = 2 * PI * i_this / golden_ratio;
+    return glm::vec3(cos(theta) * sin(phi), sin(theta) * sin(phi), cos(phi));
+}
+
+#undef madfrac
+
 void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
 {
     float inv_sqrt = 1.f / float(sqrt_num_rays);
@@ -1179,10 +1214,8 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
         {
             
             // First generate uniform sample
-            glm::vec2 sample(x * inv_sqrt,
-                             y * inv_sqrt);
-
-            sample += inv_sqrt / 2.0f;
+            glm::vec2 sample((x + float(rand()) / float(RAND_MAX)) * inv_sqrt,
+                             (y + float(rand()) / float(RAND_MAX)) * inv_sqrt);
             
             // Then map to a sphere
             float z = 1 - (2 * sample.x);
@@ -1200,8 +1233,6 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
 void RVPT::generate_probe_rays()
 {
     // Generate uniform samples
-    std::vector<glm::vec3> samples;
-    generate_samples(samples, ir.sqrt_rays_per_probe);
 
     glm::ivec3 dim = ir.probe_count;
     int offset = ir.side_length;
@@ -1210,8 +1241,11 @@ void RVPT::generate_probe_rays()
 
     for (int p_index = 0; p_index < num_probes; p_index++)
     {
+        std::vector<glm::vec3> samples;
+        generate_samples(samples, ir.sqrt_rays_per_probe);
+
         int py = p_index / (ir.probe_count.x * ir.probe_count.z);
-        
+
         int leftover = p_index - (py * ir.probe_count.x * ir.probe_count.z);
         int pz = leftover / ir.probe_count.x;
         

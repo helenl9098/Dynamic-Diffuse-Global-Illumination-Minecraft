@@ -190,9 +190,14 @@ vec3 get_direct_lighting(Isect info, vec3 light_vec) {
 	Isect temp_info;
 	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
 		if (temp_info.type == 2) {
-	            return info.mat.base_color;
+			float lambert = clamp(dot(normalize(info.normal),
+                                      get_light_pos_in_scene(render_settings.scene) - info.pos),
+                                  0.0, 1.0);
+            return info.mat.base_color * lambert;
+	            //return info.mat.base_color;
 	        } else {
-	            return 0.5 * info.mat.base_color;
+	            return 0.3 * info.mat.base_color;
+	            //return vec3(0);
 	        }
 	    }
 }
@@ -224,6 +229,29 @@ void main() {
 	vec3 light_vec = vec3(0.0);
 	vec3 dir_light_term = vec3(0.0);
 	float lambert = 0.0;
+
+if (!intersect_scene(r, 0, INF, hit_info)) {
+	color = vec3(0, 0, 0);
+} 
+else { 
+	int nbounces = 10;
+	vec3 single_bounce_color = vec3(0, 0, 0);
+	for(int i = 0; i < nbounces; i++) {
+		Ray indirect_ray = Ray(hit_info.pos + 0.0001 * hit_info.normal, calculateRandomDirectionInHemisphere(hit_info.normal));
+		Isect indirect_hit_info;
+		if (intersect_scene(indirect_ray, 0, INF, indirect_hit_info)) {
+			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - indirect_hit_info.pos);
+			vec3 indirect_color_contribution = get_direct_lighting(hit_info, light_vec);
+			single_bounce_color += indirect_color_contribution;
+		}
+
+	}
+
+	single_bounce_color = (single_bounce_color / nbounces);
+	color = single_bounce_color;
+
+}
+	/*
 	for(int i = 0; i < 5; i++) {
 		if(intersect_scene(r, 0, INF, hit_info)) {
 			if(first_bounce) {
@@ -231,7 +259,7 @@ void main() {
 				distances.x = length(hit_info.pos - r.origin);
 				distances.y = distances.x * distances.x;
 				first_bounce = false;
-			}
+			} else {
 
 			// Get direct lighting at that point
 			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
@@ -243,7 +271,7 @@ void main() {
 			throughput *= dir_light_term * lambert / PI;
 
 			color += throughput;
-
+			}
 			
 		
 			// Update next ray and intersection
@@ -251,7 +279,7 @@ void main() {
 		} else {
 			break;
 		}
-	}
+	} */
 
 	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
 
