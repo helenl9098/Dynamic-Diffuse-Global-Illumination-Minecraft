@@ -1179,10 +1179,8 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
         {
             
             // First generate uniform sample
-            glm::vec2 sample(x * inv_sqrt,
-                             y * inv_sqrt);
-
-            sample += inv_sqrt / 2.0f;
+            glm::vec2 sample((x + float(rand()) / float(RAND_MAX)) * inv_sqrt,
+                             (y + float(rand()) / float(RAND_MAX)) * inv_sqrt);
             
             // Then map to a sphere
             float z = 1 - (2 * sample.x);
