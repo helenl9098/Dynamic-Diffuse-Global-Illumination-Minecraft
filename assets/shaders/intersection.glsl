@@ -1191,6 +1191,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 	V.direction = normalize(V.direction);
 
 	// step 1. find the probe index at the bottom left corner of relevant probe cage
+	// this is in probe space (range from [-probe_counts / 2, (probe_counts / 2) - 1 ] (floored))
 	ivec3 base_probe_index = ivec3(floor((pos - irradiance_field.field_origin) / side_length));
 
 	for(int i = 0; i < 3; i++) {
@@ -1199,11 +1200,11 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 		}
 	}
 
-
-	//return vec3(1, 1, 0);
+	vec3 base_prob_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
 
 	vec3 irradiance = vec3(0);
-
+	float sum_weight = 0.0;
+	vec3 alpha = clamp(((pos - base_prob_world_pos) / side_length), vec3(0), vec3(1));
 	// step 2. loop over 8 probes in cage
 	for(int i = 0; i < 8; i++) {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
@@ -1218,13 +1219,29 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         					+ shifted_probe_index.z * probe_counts.x
         					+ shifted_probe_index.x;
         if(probe_index_1d < 0 || probe_index_1d >= probe_counts.x * probe_counts.y * probe_counts.z) {
-        	return vec3(0, 1, 1);
+        	return vec3(1, 0, 1);
         }
 
+        // step 4. before we sample the probe, we need to calculate how much that probe will be weighted.
+
+
+        //===============WEIGHTS CALCulation below===================/
+        	float weight = 1.0;
+
+        	// adjacency weight
+        	vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+        	weight *= trilinear.x * trilinear.y * trilinear.z;
+
+        //===============WEIGHTS CALCulation above===================/
+
+        // step 5. we have to sample the irradiance at the current probe based on the texture
+        //irradiance += sample_probe(probe_index_1d, N, 0) * weight;
         irradiance += sample_probe(probe_index_1d, N, 0);
+        sum_weight += weight;
 	}
 
-	return irradiance;
+	//return irradiance / sum_weight;
+	return irradiance / 8.0;
 
 /*
 

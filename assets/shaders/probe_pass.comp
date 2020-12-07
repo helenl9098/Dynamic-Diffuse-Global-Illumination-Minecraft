@@ -189,10 +189,10 @@ vec3 get_direct_lighting(Isect info, vec3 light_vec) {
 	Ray light_feeler = Ray(info.pos, light_vec);
 	Isect temp_info;
 	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
-		if (temp_info.type == 2) {
-			float lambert = clamp(dot(normalize(info.normal),
-                                      get_light_pos_in_scene(render_settings.scene) - info.pos),
+		float lambert = clamp(dot(normalize(info.normal),
+                                  normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
+		if (temp_info.type == 2) {
             return info.mat.base_color * lambert;
 	            //return info.mat.base_color;
 	        } else {
