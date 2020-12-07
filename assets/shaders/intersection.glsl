@@ -1194,7 +1194,11 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 
 	vec3 sumIrradiance = vec3(0.f);
     float sumWeight = 0.f;
+
     vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
+
+	// visualizes the cage
+	// return vec3(baseProbeIdx - minProbeIdxIF) / vec3(probeCounts);
 
 	for (int i = 0; i < 8; i++) {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
@@ -1217,7 +1221,8 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// variance shadow map test
 		// will need another texture to store the mean and teh mean squared
 		// the author also linked a paper for that as well
-        float isectProbeDist = length(pos - probePos)	;
+        float isectProbeDist = length(pos - probePos);
+
 		// sample form meanMeanSquared
 
         vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
@@ -1257,6 +1262,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 
 		sumIrradiance += weight * irradiance;
 		//sumIrradiance += irradiance;
+
         sumWeight += weight;
 	}
 
