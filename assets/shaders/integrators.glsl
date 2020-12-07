@@ -83,7 +83,8 @@ vec3 integrator_binary
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
             //return (info.mat.base_color * lambert * indirectLighting);
-            return info.mat.base_color * lambert + indirectLighting;
+            vec3 finalCol = info.mat.base_color * lambert + indirectLighting;
+            return any(greaterThan(finalCol, vec3(1))) ? normalize(finalCol) : finalCol;
         } else {
             //return info.mat.base_color / 10.0;
             //return (vec3(0) * indirectLighting);
