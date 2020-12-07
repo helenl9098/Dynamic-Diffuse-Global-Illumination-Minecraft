@@ -1197,6 +1197,9 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 
     vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
 
+	// visualizes the cage
+	// return vec3(baseProbeIdx - minProbeIdxIF) / vec3(probeCounts);
+
 	for (int i = 0; i < 8; i++) {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
         vec3 probePos = vec3(round((baseProbeIdx + offset) * sideLength));
