@@ -756,18 +756,18 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(0.1, r, r, 1);
 	}
 	else if (block_type == 2) {
-		return vec4(1, 0, 0, 1);
+		return vec4(.95, 0, 0, 1);
 	}
 	else if (block_type == 3) {
-		return vec4(0, 1, 0, 1);
+		return vec4(0, .95, 0, 1);
 	}
 	else if (block_type == 4) {
-		return vec4(0, 0, 1, 1);
+		return vec4(0, 0, .95, 1);
 	}
 	else if (block_type == 5) {
 		//vec2 uvs = getUVs(point, normal);
 		//return vec4(uvs, 1, 1);
-		return vec4(1, 1, 1, 1);
+		return vec4(.95, .95, .95, 1);
 	}
 }
 
@@ -1219,6 +1219,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// will need another texture to store the mean and teh mean squared
 		// the author also linked a paper for that as well
         float isectProbeDist = length(pos - probePos);
+
 		// sample form meanMeanSquared
 
         vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
@@ -1233,7 +1234,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
 		if (!(isectProbeDist <= mean))
         {
-			//weight *= chebyshevWeight;
+			weight *= chebyshevWeight;
 		}
 
 		// avoid zero weight
@@ -1249,15 +1250,16 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
         {
-            //weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
+            weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
         }
         // scale by the trilinear weights
 		// this scales the probe contribution such that probes that are far
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		//sumIrradiance += weight * irradiance;
-		sumIrradiance += irradiance;
+		sumIrradiance += weight * irradiance;
+		//sumIrradiance += irradiance;
+
         sumWeight += weight;
 	}
 
@@ -1266,8 +1268,8 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 	// this was also a uniform parameter in the supplemental code
 	float energyPreservation = 0.98;
 
-	//vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
-	vec3 netIrradiance = sumIrradiance / 8.0;
+	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
+	//vec3 netIrradiance = sumIrradiance / 8.0;
 
     return 0.5 * PI * netIrradiance;
 }
