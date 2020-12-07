@@ -185,6 +185,18 @@ vec3 calculateRandomDirectionInHemisphere(vec3 normal) {
         + sin(around) * over * perpendicularDirection2;
 }
 
+vec3 get_direct_lighting(Isect info, vec3 light_vec) {
+	Ray light_feeler = Ray(info.pos, light_vec);
+	Isect temp_info;
+	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
+		if (temp_info.type == 2) {
+	            return info.mat.base_color;
+	        } else {
+	            return 0.5 * info.mat.base_color;
+	        }
+	    }
+}
+
 void main() {
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;
@@ -194,48 +206,52 @@ void main() {
 
 	int num_rays_per_probe = irradiance_field.sqrt_rays_per_probe
 								* irradiance_field.sqrt_rays_per_probe;
-	Isect first_hit_info;
+
 	ProbeRay probe_ray = rays[index];
 	Ray r = Ray(probe_ray.origin, probe_ray.direction);
-	
+	Isect hit_info;
+
 	int probe_index = int(probe_ray.probe_info.x);
 	ivec2 texture_coords = get_texture_coords_of_probe_index(probe_index);
 	texture_coords += ivec2(probe_ray.probe_info.yz);
 
+	bool first_bounce = true;
 	vec3 color = vec3(0.0);
 	vec3 normal = vec3(0.0);
 	vec2 distances = vec2(0.0);
 	
-	if(intersect_scene(r, 0, INF, first_hit_info)) {
+	vec3 throughput = vec3(1.0);
+	vec3 light_vec = vec3(0.0);
+	vec3 dir_light_term = vec3(0.0);
+	float lambert = 0.0;
+	for(int i = 0; i < 5; i++) {
+		if(intersect_scene(r, 0, INF, hit_info)) {
+			if(first_bounce) {
+				normal = hit_info.normal;
+				distances.x = length(hit_info.pos - r.origin);
+				distances.y = distances.x * distances.x;
+				first_bounce = false;
+			}
 
-	// test with more than just material color; bounce ray
+			// Get direct lighting at that point
+			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
+			dir_light_term = get_direct_lighting(hit_info, light_vec);
+			lambert = clamp(dot(normalize(hit_info.normal),
+										  normalize(light_vec)),
+		                    0.0,
+		                    1.0);
+			throughput *= dir_light_term * lambert / PI;
 
-		color = first_hit_info.mat.base_color;
-		normal = first_hit_info.normal;
-		distances.x = length(first_hit_info.pos - r.origin);
-		distances.y = distances.x * distances.x;
+			color += throughput;
 
-		Isect next_hit_info;
-
-
-
-   		 // CHANGED: direct lighting
-
-     	//Ray light_feeler = Ray(temp_info.pos, normalize(get_light_pos_in_scene(render_settings.scene/*LOOK SCENE: NEEDED TO CHANGE SCENES*/) - temp_info.pos));
-     	/*Isect light_info;
-   		if (intersect_scene(light_feeler, 0, INF, light_info)) {
-        	if (light_info.type == 2) {
-            	color = temp_info.mat.base_color;
-        	} else {
-            	color = temp_info.mat.base_color * 0.5;
-        	}
-    	} // end of direct lighting
-
-	    float lambert = clamp(dot(temp_info.normal, normalize(temp_info.pos - spheres[0].origin)), 0.0, 1.0);
-
-	    acc += temp_info.mat.base_color;*/
+			
+		
+			// Update next ray and intersection
+			r = Ray(hit_info.pos, calculateRandomDirectionInHemisphere(hit_info.normal));
+		} else {
+			break;
+		}
 	}
-
 
 	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
 
