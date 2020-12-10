@@ -491,7 +491,7 @@ float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
 	probePos = probeOrigin;
 	
     vec3 q = p-probeOrigin;
-    return sdSphere(q, 0.5); // probe radius here
+    return sdSphere(q, 0.2); // probe radius here
 }
 
 float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos, vec3 field_origin) {
@@ -753,7 +753,10 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
-		return vec4(0.1, r, r, 1);
+		if(point.x < 0) {
+			return vec4(0.1, r, r, 1);
+		}
+		return vec4(0.8, r, r, 1);
 	}
 	else if (block_type == 2) {
 		return vec4(.95, 0, 0, 1);
@@ -870,15 +873,19 @@ ivec2 get_text_coord_from_probe_number(int probe_number) {
 
 	int x_dim = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
 
-	if (probe_number < 0 || x_dim < 0) {
+	if(probe_number >= x_dim * irradiance_field.probe_count.y) {
 		return ivec2(-1, -1);
+	}
+
+	if (probe_number < 0 || x_dim < 0) {
+		//return ivec2(-1, -1);
 	}
 	ivec2 result = ivec2(-1, -1);	
 	result[0] = int(mod(probe_number, x_dim));
 	result[1] = int(floor(probe_number / x_dim));
 
 	if (result[1] >= irradiance_field.probe_count.y) {
-		return ivec2(-1, -1);
+		//return ivec2(-1, -1);
 	}
 	return result * irradiance_field.sqrt_rays_per_probe;
 }
@@ -890,15 +897,16 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 	// represents th probe in the texture
 	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
 	if (top_corner_text_coords == ivec2(-1, -1)) {
-		return vec3(0, 0, 0);
+		return vec3(1, 0, 1);
 	}
 	
+	//top_corner_text_coords = ivec2(9 * irradiance_field.sqrt_rays_per_probe, 1 * irradiance_field.sqrt_rays_per_probe);
+
 	// from the looks of things, they use the isect point's normal as the sample_probe(int probe_number, vec3 dir, int texture_to_sample) direction to sample
 	// on the probe 
 	vec3 irradiance_dir = normalize(dir);
 
 	// need to change irradiance direction into a texture coord (relative to top left corner)
-    // TO DO: Find texture coord
     ivec2 relative_text_coords = ivec2(0, 0);
     // float z = 1 - (2 * sample.x);
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
@@ -913,7 +921,6 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
 
 	// now I sample the image from these coords
-	// TO DO: Specify which probe image to sample
 	vec3 result = vec3(0, 0, 0);
 	if (texture_to_sample == 0) {
 		result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
@@ -1180,36 +1187,51 @@ bool intersect_cubes_scene
 	
 } /* intersect_scene */
 
-vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
+vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 {
-
 	vec3 pos = info.pos;
-    vec3 N = info.normal;
-    V.direction = normalize(V.direction);	// view vector
+	vec3 N = normalize(info.normal);
+	V.direction = normalize(V.direction);
 
-	ivec3 baseProbeIdx = ivec3(floor(pos / float(sideLength)));
-	//ivec3 baseProbeIdx = ivec3(0, 0, 0);
+	// step 1. find the probe index at the bottom left corner of relevant probe cage
+	// this is in probe space (range from [-probe_counts / 2, (probe_counts / 2) - 1 ] (floored))
+	ivec3 base_probe_index = ivec3(floor((pos - irradiance_field.field_origin) / side_length));
 
-	ivec3 minProbeIdxIF = -(probeCounts / 2);
+	for(int i = 0; i < 3; i++) {
+		if(base_probe_index[i] < int(-floor(probe_counts / 2.0)) || base_probe_index[i] > int(floor(probe_counts / 2.0) - 1)) {
+			return vec3(1, 0, 1);
+		}
+	}
 
-	vec3 sumIrradiance = vec3(0.f);
-    float sumWeight = 0.f;
+	vec3 base_probe_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
 
-    vec3 alpha = (pos - baseProbeIdx * sideLength) / sideLength;
-
-	// visualizes the cage
-	// return vec3(baseProbeIdx - minProbeIdxIF) / vec3(probeCounts);
-
-	for (int i = 0; i < 8; i++) {
+	vec3 irradiance = vec3(0);
+	float sum_weight = 0.0;
+	vec3 alpha = clamp(((pos - base_probe_world_pos) / side_length), vec3(0), vec3(1));
+	// step 2. loop over 8 probes in cage
+	for(int i = 0; i < 8; i++) {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
-        vec3 probePos = vec3(round((baseProbeIdx + offset) * sideLength));
-        ivec3 probeIdx3D = ivec3(probePos / float(sideLength)) - minProbeIdxIF;
-        int probeIdx1D = probeIdx3D.x + probeIdx3D.z * probeCounts.x + probeIdx3D.y * probeCounts.x * probeCounts.z;
+        ivec3 curr_probe_index = base_probe_index + offset; // in probe index space
 
-		vec3 dir = normalize(probePos - pos);
+        // step 3. for each probe, find 1D coordinate from 3D coordinates
+        //         this takes the range from [-probe_counts / 2, probe_counts / 2 ] (floored)
+        // 		   to [0, probe_counts - 1].
+        //		   in this case, [-2, 2] -> [0, 4]
+        ivec3 shifted_probe_index = curr_probe_index + ivec3(floor(probe_counts / 2));
+        int probe_index_1d = shifted_probe_index.y * probe_counts.x * probe_counts.z
+        					+ shifted_probe_index.z * probe_counts.x
+        					+ shifted_probe_index.x;
+        if(probe_index_1d < 0 || probe_index_1d >= probe_counts.x * probe_counts.y * probe_counts.z) {
+        	return vec3(1, 0, 1);
+        }
 
-		vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+        // step 4. before we sample the probe, we need to calculate how much that probe will be weighted.
 
+
+        //===============WEIGHTS CALCulation below===================/
+        vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+        vec3 probe_pos = base_probe_world_pos + offset * side_length;
+        vec3 dir = probe_pos - pos;
 		// smooth backface test
 		// all of these extra constants are supposed to prevent the weight
 		// from going to zero
@@ -1221,11 +1243,10 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// variance shadow map test
 		// will need another texture to store the mean and teh mean squared
 		// the author also linked a paper for that as well
-        float isectProbeDist = length(pos - probePos);
-
+        float isectProbeDist = length(pos - probe_pos);
 		// sample form meanMeanSquared
 
-        vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
+        vec2 mms = sample_probe(probe_index_1d, -dir, 1).rg;
 
         float mean = mms.x;
         float variance = abs(mean * mean - mms.y);
@@ -1243,12 +1264,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// avoid zero weight
         weight = max(0.000001, weight);
 
-		// sample from irradaince texture
-		// this will also need to be made and evaluated using the other paper
-		// that the author referenced
-        vec3 irradiance = sample_probe(probeIdx1D, N, 0).rgb;
-
-		// amplifies dim lighting contributions to mimic the human visual
+        // amplifies dim lighting contributions to mimic the human visual
 		// system's sensitivity to low light conditions
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
@@ -1260,21 +1276,16 @@ vec3 get_diffuse_gi(Isect info, ivec3 probeCounts, int sideLength, Ray V)
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		sumIrradiance += weight * irradiance;
-		//sumIrradiance += irradiance;
+        //===============WEIGHTS CALCulation above===================/
 
-        sumWeight += weight;
+        // step 5. we have to sample the irradiance at the current probe based on the texture
+        //irradiance += sample_probe(probe_index_1d, N, 0) * weight;
+        irradiance += weight * sample_probe(probe_index_1d, N, 0);
+        sum_weight += weight;
 	}
 
-	// combat the sensitive perception of very small amounts of light leaking
-	// and then recursively lighting closed rooms by losing energy with each shade
-	// this was also a uniform parameter in the supplemental code
-	float energyPreservation = 0.98;
-
-	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
-	//vec3 netIrradiance = sumIrradiance / 8.0;
-
-    return 0.5 * PI * netIrradiance;
+	return irradiance / sum_weight;
+	//return irradiance / 8.0;
 }
 
 
