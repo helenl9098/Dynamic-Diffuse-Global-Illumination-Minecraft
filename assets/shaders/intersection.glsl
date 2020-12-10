@@ -753,7 +753,9 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
-		return vec4((point.x + 25) / 100, r, r, 1);
+		if(point.x < 0) 
+			return vec4(0.1, r, r, 1);
+		return vec4(0.8, r, r, 1);
 	}
 	else if (block_type == 2) {
 		return vec4(.95, 0, 0, 1);
