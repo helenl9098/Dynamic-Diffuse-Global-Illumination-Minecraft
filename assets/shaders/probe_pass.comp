@@ -196,10 +196,11 @@ vec3 get_direct_lighting(Isect info, vec3 light_vec) {
             return info.mat.base_color * lambert;
 	            //return info.mat.base_color;
 	        } else {
-	            return 0.3 * info.mat.base_color;
+	            return 0.4 * info.mat.base_color * lambert;
 	            //return vec3(0);
-	        }
 	    }
+	}
+	return vec3(0, 0, 0);
 }
 
 void main() {
