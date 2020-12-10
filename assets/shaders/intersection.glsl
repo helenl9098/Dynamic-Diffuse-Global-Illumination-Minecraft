@@ -753,7 +753,7 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
-		return vec4(0.1, r, r, 1);
+		return vec4((point.x + 25) / 100, r, r, 1);
 	}
 	else if (block_type == 2) {
 		return vec4(.95, 0, 0, 1);
@@ -919,17 +919,25 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
 	// now I sample the image from these coords
 	vec3 result = vec3(0, 0, 0);
-	if (texture_to_sample == 0) {
-		result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
-	} 
-	else if (texture_to_sample == 1) {
-		result = imageLoad(probe_image_distances, sample_text_coord).xyz;
-	}
-	else if (texture_to_sample == 2) {
-		result = imageLoad(probe_image_normals, sample_text_coord).xyz;
+	int count = 0;
+	int offset_distance = 4;
+	for (int x = -offset_distance; x <= offset_distance; x++) {
+		for (int y = -offset_distance; y <= offset_distance; y++) {
+			count++;
+			ivec2 offsets = ivec2(x, y);
+			if (texture_to_sample == 0) {
+				result += imageLoad(probe_image_albedo, sample_text_coord + offsets).xyz;
+			} 
+			else if (texture_to_sample == 1) {
+				result += imageLoad(probe_image_distances, sample_text_coord + offsets).xyz;
+			}
+			else if (texture_to_sample == 2) {
+				result += imageLoad(probe_image_normals, sample_text_coord + offsets).xyz;
+			}
+		}
 	}
 
-	return result;
+	return result / count;
 	//return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
 	//return vec3(1, 0.5, 0);
 }
@@ -1200,11 +1208,11 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 		}
 	}
 
-	vec3 base_prob_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
+	vec3 base_probe_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
 
 	vec3 irradiance = vec3(0);
 	float sum_weight = 0.0;
-	vec3 alpha = clamp(((pos - base_prob_world_pos) / side_length), vec3(0), vec3(1));
+	vec3 alpha = clamp(((pos - base_probe_world_pos) / side_length), vec3(0), vec3(1));
 	// step 2. loop over 8 probes in cage
 	for(int i = 0; i < 8; i++) {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
@@ -1226,55 +1234,9 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 
 
         //===============WEIGHTS CALCulation below===================/
-        	float weight = 1.0;
-
-        	// adjacency weight
-        	vec3 trilinear = mix(1.0 - alpha, alpha, offset);
-        	weight *= trilinear.x * trilinear.y * trilinear.z;
-
-        //===============WEIGHTS CALCulation above===================/
-
-        // step 5. we have to sample the irradiance at the current probe based on the texture
-        //irradiance += sample_probe(probe_index_1d, N, 0) * weight;
-        irradiance += sample_probe(probe_index_1d, N, 0);
-        sum_weight += weight;
-	}
-
-	//return irradiance / sum_weight;
-	return irradiance / 8.0;
-
-/*
-
-	vec3 pos = info.pos;
-	vec3 trans_pos = pos - irradiance_field.field_origin;
-    vec3 N = info.normal;
-    V.direction = normalize(V.direction);	// view vector
-
-	ivec3 baseProbeIdx = ivec3(floor(trans_pos / float(side_length)));
-
-	ivec3 minProbeIdxIF = ivec3(-floor(vec3(probe_counts) / 2.0));
-
-	//baseProbeIdx = clamp(baseProbeIdx, minProbeIdxIF, probeCounts / 2);
-
-	vec3 sumIrradiance = vec3(0.f);
-    float sumWeight = 0.f;
-
-    vec3 alpha = clamp((trans_pos - baseProbeIdx * side_length) / side_length, 0, 1);
-    //return (baseProbeIdx - minProbeIdxIF) / (vec3(probeCounts) - vec3(1.0)) ;
-
-	for (int i = 0; i < 8; i++) {
-        ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
-        vec3 probePos = vec3((baseProbeIdx + offset) * side_length); // world position of probe
-        ivec3 probeIdx3D = ivec3((probePos ) / float(side_length)) - minProbeIdxIF; // this is in probe index space
-        int probeIdx1D = probeIdx3D.x + probeIdx3D.z * 5 + probeIdx3D.y * 25;//probeIdx3D.x + probeIdx3D.z * probeCounts.x + probeIdx3D.y * probeCounts.z * probeCounts.x;
-
-        if(probeIdx1D >= 125) {//probeCounts.x * probeCounts.y * probeCounts.z) {
-        	return vec3(1, 0, 1);
-        }
-		vec3 dir = normalize(probePos - pos);
-
-		vec3 trilinear = mix(1.0 - alpha, alpha, offset);
-
+        vec3 trilinear = mix(1.0 - alpha, alpha, offset);
+        vec3 probe_pos = base_probe_world_pos + offset * side_length;
+        vec3 dir = probe_pos - pos;
 		// smooth backface test
 		// all of these extra constants are supposed to prevent the weight
 		// from going to zero
@@ -1286,10 +1248,10 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 		// variance shadow map test
 		// will need another texture to store the mean and teh mean squared
 		// the author also linked a paper for that as well
-        float isectProbeDist = length(pos - probePos);
+        float isectProbeDist = length(pos - probe_pos);
 		// sample form meanMeanSquared
 
-        vec2 mms = sample_probe(probeIdx1D, -dir, 1).rg;
+        vec2 mms = sample_probe(probe_index_1d, -dir, 1).rg;
 
         float mean = mms.x;
         float variance = abs(mean * mean - mms.y);
@@ -1307,12 +1269,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 		// avoid zero weight
         weight = max(0.000001, weight);
 
-		// sample from irradiance texture
-		// this will also need to be made and evaluated using the other paper
-		// that the author referenced
-        vec3 irradiance = sample_probe(probeIdx1D, N, 0).rgb;
-
-		// amplifies dim lighting contributions to mimic the human visual
+        // amplifies dim lighting contributions to mimic the human visual
 		// system's sensitivity to low light conditions
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
@@ -1324,20 +1281,16 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 		// away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
-		sumIrradiance += weight * irradiance;
-		//sumIrradiance += irradiance;
-        sumWeight += weight;
+        //===============WEIGHTS CALCulation above===================/
+
+        // step 5. we have to sample the irradiance at the current probe based on the texture
+        //irradiance += sample_probe(probe_index_1d, N, 0) * weight;
+        irradiance += weight * sample_probe(probe_index_1d, N, 0);
+        sum_weight += weight;
 	}
 
-	// combat the sensitive perception of very small amounts of light leaking
-	// and then recursively lighting closed rooms by losing energy with each shade
-	// this was also a uniform parameter in the supplemental code
-	float energyPreservation = 0.98;
-
-	vec3 netIrradiance = energyPreservation * sumIrradiance / sumWeight;
-	//vec3 netIrradiance = sumIrradiance / 8.0;
-
-    return 0.5 * PI * netIrradiance; */
+	return irradiance / sum_weight;
+	//return irradiance / 8.0;
 }
 
 
