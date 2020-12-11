@@ -79,48 +79,19 @@ vec3 integrator_binary
     // this is just a hack so the light feeler ray can be calculated by the get intersection
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos));
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
-
         if (temp_info.type == 2) {
             float lambert = clamp(dot(normalize(info.normal),
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
-            return 0.5 * info.mat.base_color * lambert + 0.5 * indirectLighting;
             //return indirectLighting;
+            return 0.5 * info.mat.base_color * lambert + 0.5 * info.mat.base_color * indirectLighting;
         } else {
-            //return info.mat.base_color / 10.0;
-            //return (vec3(0) * indirectLighting);
-            //return 0.5 * indirectLighting;
-            return 0.2 * (0.9 * indirectLighting + 0.1 * info.mat.base_color); 
+            //return indirectLighting;
+            return indirectLighting * info.mat.base_color; 
         }
     } // end of direct lighting
 
-    // indirect bounce
-
-    /* shoot several rays to estimate the occlusion integral */
-    /*
-	vec3 acc = vec3(0.0);
-	int nrays = 10;
-	for (int i=0; i<nrays; ++i)
-	{
-		Ray new_ray;
-		new_ray.origin = info.pos + EPSILON * info.normal;
-		float u = rand();
-		float v = rand();
-		
-		// diffuse scattering, pdf cancels out \cos\theta / \pi factor 
-		new_ray.direction = map_cosine_hemisphere_simple(u,v, info.normal);
-		Isect temp_info;
-
-		if(intersect_scene(new_ray, mint, maxt, temp_info)) {
-			acc += temp_info.mat.base_color;
-		}
-		
-	} */
-	
-	return col;// + acc / float(nrays);
-
-    // everything below is what they used to have
-	//return vec3(intersect_scene_any(ray, mint, maxt));
+	return col;
 
 } /* integrator_binary */
 

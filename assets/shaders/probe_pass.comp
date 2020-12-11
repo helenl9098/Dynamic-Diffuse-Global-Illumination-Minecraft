@@ -194,12 +194,11 @@ vec3 get_direct_lighting(Isect info, vec3 light_vec) {
                                   0.0, 1.0);
 		if (temp_info.type == 2) {
             return info.mat.base_color * lambert;
-	            //return info.mat.base_color;
-	        } else {
-	            return 0.4 * info.mat.base_color * lambert;
-	            //return vec3(0);
+	    } else {
+	        return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
 	    }
 	}
+
 	return vec3(0, 0, 0);
 }
 
@@ -231,65 +230,28 @@ void main() {
 	vec3 dir_light_term = vec3(0.0);
 	float lambert = 0.0;
 
-if (!intersect_scene(r, 0, INF, hit_info)) {
-	color = vec3(0, 0, 0);
-} 
-else { 
-	int nbounces = 10;
-	vec3 single_bounce_color = vec3(0, 0, 0);
-	for(int i = 0; i < nbounces; i++) {
-		Ray indirect_ray = Ray(hit_info.pos + 0.0001 * hit_info.normal, calculateRandomDirectionInHemisphere(hit_info.normal));
-		Isect indirect_hit_info;
-		if (intersect_scene(indirect_ray, 0, INF, indirect_hit_info)) {
-			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - indirect_hit_info.pos);
-			vec3 indirect_color_contribution = get_direct_lighting(hit_info, light_vec);
-			single_bounce_color += indirect_color_contribution;
-		}
 
-	}
-
-	single_bounce_color = (single_bounce_color / nbounces);
-	color = single_bounce_color;
-
-}
-	/*
-	for(int i = 0; i < 5; i++) {
-		if(intersect_scene(r, 0, INF, hit_info)) {
-			if(first_bounce) {
-				normal = hit_info.normal;
-				distances.x = length(hit_info.pos - r.origin);
-				distances.y = distances.x * distances.x;
-				first_bounce = false;
+		int nbounces = 6;
+		vec3 single_bounce_color = vec3(0);
+		Ray indirect_ray = r;
+		for(int i = 0; i < nbounces; i++) {
+			if (intersect_scene(indirect_ray, 0, INF, hit_info)) {
+				light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
+				vec3 indirect_color_contribution = get_direct_lighting(hit_info, light_vec);
+				single_bounce_color += indirect_color_contribution;
 			} else {
-
-			// Get direct lighting at that point
-			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
-			dir_light_term = get_direct_lighting(hit_info, light_vec);
-			lambert = clamp(dot(normalize(hit_info.normal),
-										  normalize(light_vec)),
-		                    0.0,
-		                    1.0);
-			throughput *= dir_light_term * lambert / PI;
-
-			color += throughput;
+				break;
 			}
-			
-		
-			// Update next ray and intersection
-			r = Ray(hit_info.pos, calculateRandomDirectionInHemisphere(hit_info.normal));
-		} else {
-			break;
+
+			indirect_ray = Ray(hit_info.pos + 0.0001 * hit_info.normal, calculateRandomDirectionInHemisphere(hit_info.normal));
 		}
-	} */
 
-	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
+		single_bounce_color /= nbounces;
+		color = single_bounce_color;
 
-	// for each ray
-	// get ray direction
-	// takes a 2d into a sphere coord
-	// texel direction ?
-
-	color = mix(old_color, color, irradiance_field.hysteresis);
+	
+	/*vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
+	color = mix(old_color, color, irradiance_field.hysteresis);*/
 
 	imageStore(probe_image_albedo, texture_coords, vec4(color, 1.0));
 	imageStore(probe_image_normals, texture_coords, vec4(normal, 0.0));

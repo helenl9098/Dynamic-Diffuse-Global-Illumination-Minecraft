@@ -662,11 +662,11 @@ int getBlockAt(vec3 coords, int scene) {
 		}
 
 		if (abs(coords.x + 3) < 3 && abs(coords.y + 7) < 3 && abs(coords.z -13) < 3) {
-				return 4;
+				return 5;
 		}
 
 		if (abs(coords.x - 4) < 3 && abs(coords.y + 4) < 6 && abs(coords.z -16) < 3) {
-				return 4;
+				return 5;
 		} 
 	}
 
@@ -753,9 +753,10 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
+		r = 0.3;
 		if(point.x < 0) 
 			return vec4(0.1, r, r, 1);
-		return vec4(0.8, r, r, 1);
+		return vec4(0.99, r, r, 1);
 	}
 	else if (block_type == 2) {
 		return vec4(.95, 0, 0, 1);
@@ -911,6 +912,10 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
     relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
 
+    if(relative_text_coords[0] == irradiance_field.sqrt_rays_per_probe) {
+    	relative_text_coords[0] = 0;
+    }
+
     // float x = cos(2* pi * sample.y) * sqrt(1 - (z * z));
     // y = (acos(x / (sqrt(1 - (z * z)))) / (2 * pi)) * sqrt_num_rays
     float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
@@ -920,21 +925,31 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
 
 	// now I sample the image from these coords
-	vec3 result = vec3(0, 0, 0);
+	vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;;
 	int count = 0;
-	int offset_distance = 4;
+	int offset_distance = 2;
 	for (int x = -offset_distance; x <= offset_distance; x++) {
+		int temp = sample_text_coord.x + x;
+		if(temp < top_corner_text_coords.x || temp >= top_corner_text_coords.x + irradiance_field.sqrt_rays_per_probe) {
+			continue;
+		}
 		for (int y = -offset_distance; y <= offset_distance; y++) {
-			count++;
 			ivec2 offsets = ivec2(x, y);
+			ivec2 result_coords = sample_text_coord + offsets;
+			if(result_coords.y < top_corner_text_coords.y || result_coords.y >= top_corner_text_coords.y + irradiance_field.sqrt_rays_per_probe) {
+				continue;
+			}
+
+			count++;
+
 			if (texture_to_sample == 0) {
-				result += imageLoad(probe_image_albedo, sample_text_coord + offsets).xyz;
+				result += imageLoad(probe_image_albedo, result_coords).xyz;
 			} 
 			else if (texture_to_sample == 1) {
-				result += imageLoad(probe_image_distances, sample_text_coord + offsets).xyz;
+				result += imageLoad(probe_image_distances, result_coords).xyz;
 			}
 			else if (texture_to_sample == 2) {
-				result += imageLoad(probe_image_normals, sample_text_coord + offsets).xyz;
+				result += imageLoad(probe_image_normals, result_coords).xyz;
 			}
 		}
 	}
@@ -1265,7 +1280,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
 		if (!(isectProbeDist <= mean))
         {
-			weight *= chebyshevWeight;
+		//	weight *= chebyshevWeight;
 		}
 
 		// avoid zero weight
