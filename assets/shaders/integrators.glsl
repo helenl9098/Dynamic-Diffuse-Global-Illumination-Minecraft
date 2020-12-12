@@ -24,13 +24,14 @@ const float SQRT_OF_ONE_THIRD = 0.577350269;
 
 /*--------------------------------------------------------------------------*/
 
-vec3 integrator_binary
+vec3 integrator_DDGI
 
 	(Ray   ray,     /* primary ray */
 	 float mint,    /* lower bound for t */
 	 float maxt,	/* upper bound for t */
-	 ivec3 probeCounts,
-	 int sideLength)
+	 ivec3 probe_counts,
+	 int side_length,
+     vec3 field_origin)
 	 
 /*
 	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
@@ -45,35 +46,34 @@ vec3 integrator_binary
     bool intersect = intersect_scene(ray, mint, maxt, info);
     Isect temp_info;
 
-    /*
-    vec3 probePos = vec3(0);
-    vec3 tgtPos = vec3(2, 2, 2);
-    ivec3 tgtBox = ivec3(floor(tgtPos / float(sideLength)));
-    if (intersect_probes(ray, mint, maxt, probeCounts, sideLength, temp_info, probePos, irradiance_field.field_origin)) {
-        if (temp_info.t < info.t) { // uncomment if you want there to be a depth check for probes
-            for (int i = 0; i < 8; i++) {
-                ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
-                ivec3 testProbePos = ivec3(round((tgtBox + offset) * sideLength));
-                if (distance(probePos, testProbePos) <= 0.001) {
-                    return vec3(1, 0, 1);
-                    break;
-                }
+    
+    if(irradiance_field.visualize) {
+        vec3 probe_pos = vec3(0);
+        vec3 tgt_pos = vec3(2, 2, 2);
+        ivec3 tgt_box = ivec3(floor(tgt_pos / float(side_length)));
+        if (intersect_probes(ray, mint, maxt, probe_counts, side_length, temp_info, probe_pos, field_origin)) {
+            if (temp_info.t < info.t) {
+                // uncomment if you want there to be a check probes around a certain point
+                /*for (int i = 0; i < 8; i++) {
+                    ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+                    ivec3 test_probe_pos = ivec3(round((tgt_box + offset) * side_length));
+                    if (distance(probe_pos, test_probe_pos) <= 0.001) {
+                        return vec3(1, 0, 1);
+                        break;
+                    }
+                }*/
+
+                return vec3(0, 1, 1); // probe color here
             }
-            return vec3(0, 1, 1); // probe color here
-        }
-    } */
+        } 
+    }
+    
 
     vec3 col = vec3(0, 0, 0);
     if (!intersect)
         return col;
 
-    vec3 indirectLighting = get_diffuse_gi(info, probeCounts, sideLength, ray);
-    /*if (all(greaterThanEqual(info.pos, -probeCounts * sideLength / 2)) &&
-        all(lessThan(info.pos, probeCounts * sideLength / 2)))
-    {
-        
-    }*/
-
+    vec3 indirectLighting = get_diffuse_gi(info, probe_counts, side_length, ray);
 
     // CHANGED: direct lighting
     // this is just a hack so the light feeler ray can be calculated by the get intersection
@@ -83,17 +83,15 @@ vec3 integrator_binary
             float lambert = clamp(dot(normalize(info.normal),
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
-            //return indirectLighting;
             return 0.5 * info.mat.base_color * lambert + 0.5 * info.mat.base_color * indirectLighting;
         } else {
-            //return indirectLighting;
             return indirectLighting * info.mat.base_color; 
         }
     } // end of direct lighting
 
 	return col;
 
-} /* integrator_binary */
+} /* integrator_DDGI */
 
 /*--------------------------------------------------------------------------*/
 
@@ -753,7 +751,7 @@ vec3 integrator_Hart
 {
 
     IsectM info;
-    intersect_scene_st(primary_ray, mint, maxt, info);
+    //intersect_scene_st(primary_ray, mint, maxt, info);
     return vec3(float(info.iter) / float(MARCH_ITER-1));
  
 } /* integrator_Hart */

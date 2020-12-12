@@ -83,16 +83,16 @@ vec2 min_idx(vec2 lhs, vec2 rhs)
     return lhs.x<rhs.x ? lhs : rhs;
 }
 
-float intersect_scene_st
+/*float intersect_scene_st
 
-	(Ray        ray,  /* ray for the intersection */
-	 float      mint, /* lower bound for t */
-	 float      maxt, /* upper bound for t */
-	 out IsectM info) /* intersection data */
+	(Ray        ray,  // ray for the intersection 
+	 float      mint, // lower bound for t 
+	 float      maxt, // upper bound for t 
+	 out IsectM info) // intersection data 
      
-/*
+
     Intersect scene using sphere tracing.
-*/ 
+
      
 {
     float t = mint;
@@ -137,7 +137,7 @@ float intersect_scene_st
     info.iter = i;
     return INF;
     
-} /* intersect_scene_st */
+}*/ /* intersect_scene_st */
 
 /*--------------------------------------------------------------------------*/
 

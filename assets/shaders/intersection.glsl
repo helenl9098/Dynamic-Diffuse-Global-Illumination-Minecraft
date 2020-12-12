@@ -444,19 +444,6 @@ bool intersect_scene_any
 			return true;
 	}
 	
-	/* intersect triangles */
-	for (int i = 0; i < triangles.length(); i++)
-	{
-		Triangle tri = triangles[i];
-		
-		/* early out */
-		if (intersect_triangle_any(ray, 
-								   tri.vert0.xyz, 
-								   tri.vert1.xyz, 
-								   tri.vert2.xyz, 
-								   mint, maxt)) return true;
-	}
-	
 	return false;
 	
 } /* intersect_scene_any */
@@ -1005,39 +992,6 @@ bool intersect_scene
 	/* intersect light */
 
 
-	/* intersect triangles */
-	/*
-	for (int i = 0; i < triangles.length(); i++)
-	{
-		Triangle triangle = triangles[i];
-		intersect_triangle_fast(ray, 
-								triangle.vert0.xyz, 
-								triangle.vert1.xyz, 
-								triangle.vert2.xyz, 
-								mint, 
-								closest_t, 
-								temp_isect);
-		if (temp_isect.t<closest_t)
-		{
-			info = temp_isect;
-			Material mat = materials[int(triangle.mat_id.x)];
-			info.mat = convert_old_material(mat);
-		}
-		closest_t = min(temp_isect.t, closest_t);
-	}
-	*/
-
-	// CHANGED: added floor
-	/*
-	intersect_plane(ray, -0.5, vec3(0, 1, 0), mint, maxt, temp_isect);
-	if (temp_isect.t<closest_t)
-	{
-		info = temp_isect;
-		Material mat = materials[2]; // TO DO: Don't hard code this
-		info.mat = convert_old_material(mat);
-		closest_t = min(temp_isect.t, closest_t);
-	} */
-
 	if (grid_march(ray, mint, maxt, temp_isect, scene)) {
 		if (temp_isect.t<closest_t)
 		{
@@ -1536,7 +1490,7 @@ bool intersect_spheres(Ray ray, inout Record record)
 }
 
 
-bool intersect_triangles(Ray ray, inout Record record)
+/*bool intersect_triangles(Ray ray, inout Record record)
 {
     float lowest = record.distance;
     for(int i = 0; i < triangles.length(); i++){
@@ -1580,4 +1534,4 @@ bool intersect_triangles(Ray ray, inout Record record)
         }
     }
     return lowest > 0;
-}
+}*/

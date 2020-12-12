@@ -95,8 +95,8 @@ void update_camera(Window& window, RVPT& rvpt)
 int main()
 {
     Window::Settings settings;
-    settings.width = 1000;
-    settings.height = 1000;
+    settings.width = 1600;
+    settings.height = 900;
     Window window(settings);
 
     RVPT rvpt(window);

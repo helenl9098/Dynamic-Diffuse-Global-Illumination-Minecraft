@@ -103,11 +103,7 @@ void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
 
 bool RVPT::PreviousFrameState::operator==(RVPT::PreviousFrameState const& right)
 {
-    return glm::equal(settings.split_ratio, right.settings.split_ratio) == glm::bvec2(true, true) &&
-           settings.top_left_render_mode == right.settings.top_left_render_mode &&
-           settings.top_right_render_mode == right.settings.top_right_render_mode &&
-           settings.bottom_left_render_mode == right.settings.bottom_left_render_mode &&
-           settings.bottom_right_render_mode == right.settings.bottom_right_render_mode &&
+    return settings.render_mode == right.settings.render_mode &&
            settings.camera_mode == right.settings.camera_mode && camera_data == right.camera_data &&
            settings.scene == right.settings.scene;
 }
@@ -177,13 +173,13 @@ bool RVPT::update()
 
     if (!(previous_frame_state == RVPT::PreviousFrameState{render_settings, camera_data}))
     {
-        render_settings.current_frame = 0;
+        //render_settings.current_frame = 0;
         previous_frame_state.settings = render_settings;
         previous_frame_state.camera_data = camera_data;
     }
     else
     {
-        render_settings.current_frame++;
+        //render_settings.current_frame++;
     }
 
     for (auto& r : random_numbers) r = (distribution(random_generator));
@@ -198,7 +194,6 @@ bool RVPT::update()
     float delta = static_cast<float>(time.since_last_frame());
 
     per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
-    per_frame_data[current_frame_index].triangle_buffer.copy_to(triangles);
     per_frame_data[current_frame_index].material_buffer.copy_to(materials);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
 	
@@ -270,65 +265,10 @@ void RVPT::update_imgui()
     {
         ImGui::PushItemWidth(80);
         ImGui::SliderInt("Scene", &render_settings.scene, 0, 2);
-        ImGui::SliderInt("AA", &render_settings.aa, 1, 64);
-        ImGui::SliderInt("Max Bounce", &render_settings.max_bounces, 1, 64);
-
-        ImGui::Checkbox("Debug Raster", &debug_overlay_enabled);
-
-        // indent "Wireframe" checkbox, grayed out if debug raster disabled
-        if (!debug_overlay_enabled)
-        {
-            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-        }
-        ImGui::Indent();
-        ImGui::Checkbox("Wireframe", &debug_wireframe_mode);
-        ImGui::Unindent();
-        if (!debug_overlay_enabled)
-        {
-            ImGui::PopItemFlag();
-            ImGui::PopStyleVar();
-        }
-        
-        static bool horizontal_split = false;
-        static bool vertical_split = false;
-        if (ImGui::Checkbox("Split", &horizontal_split))
-        {
-            render_settings.split_ratio.x = 0.5f;
-        }
-        if (horizontal_split)
-        {
-            ImGui::SameLine();
-            if (ImGui::Checkbox("4-way", &vertical_split)) render_settings.split_ratio.y = 0.5f;
-        }
         ImGui::Text("Render Mode");
         ImGui::PushItemWidth(0);
-        dropdown_helper("top_left", render_settings.top_left_render_mode, RenderModes);
-        if (horizontal_split)
-        {
-            dropdown_helper("top_right", render_settings.top_right_render_mode, RenderModes);
-            if (vertical_split)
-            {
-                dropdown_helper("bottom_left", render_settings.bottom_left_render_mode,
-                                RenderModes);
-                dropdown_helper("bottom_right", render_settings.bottom_right_render_mode,
-                                RenderModes);
-            }
-            ImGui::SliderFloat("X Split", &render_settings.split_ratio.x, 0.f, 1.f);
-            if (vertical_split)
-                ImGui::SliderFloat("Y Split", &render_settings.split_ratio.y, 0.f, 1.f);
-        }
-        if (!vertical_split)
-        {
-            render_settings.bottom_left_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_right_render_mode = render_settings.top_right_render_mode;
-        }
-        if (!horizontal_split)
-        {
-            render_settings.top_right_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_left_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_right_render_mode = render_settings.top_left_render_mode;
-        }
+        dropdown_helper("render_mode", render_settings.render_mode, RenderModes);
+        
     }
     ImGui::End();
 
@@ -461,7 +401,7 @@ void RVPT::reload_shaders()
 
 void RVPT::toggle_debug() { debug_overlay_enabled = !debug_overlay_enabled; }
 void RVPT::toggle_wireframe_debug() { debug_wireframe_mode = !debug_wireframe_mode; }
-void RVPT::set_raytrace_mode(int mode) { render_settings.top_left_render_mode = mode; }
+void RVPT::set_raytrace_mode(int mode) { render_settings.render_mode = mode; }
 
 // Private functions //
 bool RVPT::context_init()
@@ -649,17 +589,15 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     std::vector<VkDescriptorSetLayoutBinding> compute_layout_bindings = {
         {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
         {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // temporal image
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
-        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (normal)
-        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
+        {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (normal)
+        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
+		{9, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
+        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -675,9 +613,8 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output normals
         {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
         {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+        {7, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
     };
 
     // Probe pipeline setup
@@ -814,22 +751,6 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
 
     //createTextureImage(context.device.physical_device.physical_device, vk_device);
 
-    auto temporal_storage_image = VK::Image(
-        vk_device,
-        memory_allocator,
-        *graphics_queue,
-        "temporal_storage_image",
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL,
-        window_ref.get_settings().width,
-        window_ref.get_settings().height,
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(window_ref.get_settings().width *
-                                  window_ref.get_settings().height * 4),
-        VK::MemoryUsage::gpu);
-
     VkFormat depth_format =
         VK::get_depth_image_format(context.device.physical_device.physical_device);
 
@@ -860,7 +781,6 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
                                     std::move(probe_texture_normals),
                                     std::move(probe_texture_distance),
                                     std::move(block_texture), // HELEN: ADDED THIS
-                                    std::move(temporal_storage_image),
                                     std::move(depth_image)};
 }
 
@@ -894,10 +814,6 @@ void RVPT::add_per_frame_data(int index)
         VK::Buffer(vk_device, memory_allocator, "spheres_buffer_" + std::to_string(index),
                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Sphere) * spheres.size(),
                    VK::MemoryUsage::cpu_to_gpu);
-    auto triangle_buffer =
-        VK::Buffer(vk_device, memory_allocator, "triangles_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Triangle) * triangles.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
     auto material_buffer =
         VK::Buffer(vk_device, memory_allocator, "materials_buffer_" + std::to_string(index),
                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Material) * materials.size(),
@@ -927,8 +843,6 @@ void RVPT::add_per_frame_data(int index)
     // descriptor sets
     auto image_descriptor_set = rendering_resources->image_pool.allocate(
         "output_image_descriptor_set_" + std::to_string(index));
-    auto temporal_image_descriptor_set = rendering_resources->image_pool.allocate(
-        "temporal_image_descriptor_set_" + std::to_string(index));
     auto raytracing_descriptor_set = rendering_resources->raytrace_descriptor_pool.allocate(
         "raytrace_descriptor_set_" + std::to_string(index));
     auto probe_descriptor_set = rendering_resources->probe_descriptor_pool.allocate(
@@ -942,12 +856,9 @@ void RVPT::add_per_frame_data(int index)
     std::vector<VK::DescriptorUseVector> raytracing_descriptors;
     raytracing_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{output_image.descriptor_info()});
-    raytracing_descriptors.push_back(
-        std::vector{rendering_resources->temporal_storage_image.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{random_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{camera_uniform.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
 	
     raytracing_descriptors.push_back(
@@ -972,7 +883,6 @@ void RVPT::add_per_frame_data(int index)
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
     probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
@@ -996,7 +906,7 @@ void RVPT::add_per_frame_data(int index)
 
     per_frame_data.push_back(RVPT::PerFrameData{
         std::move(settings_uniform), std::move(output_image), std::move(random_buffer),
-        std::move(camera_uniform), std::move(sphere_buffer), std::move(triangle_buffer),
+        std::move(camera_uniform), std::move(sphere_buffer), 
         std::move(material_buffer), std::move(probe_buffer),
         std::move(probe_command_buffer), std::move(probe_work_fence),
 		std::move(irradiance_field_uniform),
@@ -1091,6 +1001,9 @@ void RVPT::record_compute_command_buffer()
     command_buffer.begin();
     VkCommandBuffer cmd_buf = command_buffer.get();
 
+    uint32_t queue_family =
+        compute_queue.has_value() ? compute_queue->get_family() : graphics_queue->get_family();
+
     VkImageMemoryBarrier probe_image_barrier = {};
     probe_image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     probe_image_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -1099,20 +1012,8 @@ void RVPT::record_compute_command_buffer()
     probe_image_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     probe_image_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     probe_image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    VkImageMemoryBarrier in_temporal_image_barrier = {};
-    in_temporal_image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    in_temporal_image_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    in_temporal_image_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    in_temporal_image_barrier.image = rendering_resources->temporal_storage_image.image.handle;
-    in_temporal_image_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    in_temporal_image_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    in_temporal_image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    uint32_t queue_family =
-        compute_queue.has_value() ? compute_queue->get_family() : graphics_queue->get_family();
-    in_temporal_image_barrier.dstQueueFamilyIndex = queue_family;
-    in_temporal_image_barrier.srcQueueFamilyIndex = queue_family;
+    probe_image_barrier.dstQueueFamilyIndex = queue_family;
+    probe_image_barrier.srcQueueFamilyIndex = queue_family;
 
     // LOOK: Here is where we dispatch probe shader
     vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -1130,10 +1031,6 @@ void RVPT::record_compute_command_buffer()
                            ceil( (float) rendering_resources->probe_texture_albedo.height / 16.0f), 1);
 
     // Dispatch raytracing shader
-
-    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK::FLAGS_NONE, 0, nullptr, 0,
-                         nullptr, 1, &in_temporal_image_barrier);
 
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
                       pipeline_builder.get_pipeline(rendering_resources->raytrace_pipeline));

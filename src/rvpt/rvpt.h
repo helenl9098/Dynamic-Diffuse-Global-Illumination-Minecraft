@@ -72,18 +72,12 @@ public:
 
     struct RenderSettings
     {
-        int screen_width = 2000;
-        int screen_height = 2000;
-        int max_bounces = 8;
-        int aa = 1;
-        uint32_t current_frame = 1;
-        int camera_mode = 0;
-        int top_left_render_mode = 0;
-        int top_right_render_mode = 0;
-        int bottom_left_render_mode = 0;
-        int bottom_right_render_mode = 0;
-        glm::vec2 split_ratio = glm::vec2(0.5, 0.5);
-        int scene = 0;
+        alignas(4) int screen_width = 1600;
+        alignas(4) int screen_height = 900;
+        alignas(4) int max_bounces = 8;
+        alignas(4) int camera_mode = 0;
+        alignas(4) int render_mode = 0;
+        alignas(4) int scene = 0;
     } render_settings;
 	
 	// S_CHANGE
@@ -94,6 +88,7 @@ public:
         float hysteresis = 0.9f;                     // blending coefficient
         int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
         alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
+        bool visualize = true;
     };
     IrradianceField ir;
 
@@ -184,7 +179,6 @@ private:
         VK::Image probe_texture_normals;
         VK::Image probe_texture_distance;
         VK::Image block_texture; // HELEN: ADDED THIS
-        VK::Image temporal_storage_image;
         VK::Image depth_buffer;
     };
 
@@ -198,12 +192,11 @@ private:
         VK::Buffer random_buffer;
         VK::Buffer camera_uniform;
         VK::Buffer sphere_buffer;
-        VK::Buffer triangle_buffer;
         VK::Buffer material_buffer;
         VK::Buffer probe_buffer;
         VK::CommandBuffer probe_command_buffer;
         VK::Fence probe_work_fence;
-		VK::Buffer irradiance_field_uniform;  // S_CHANGED
+		VK::Buffer irradiance_field_uniform;
         VK::CommandBuffer raytrace_command_buffer;
         VK::Fence raytrace_work_fence;
         VK::DescriptorSet image_descriptor_set;
