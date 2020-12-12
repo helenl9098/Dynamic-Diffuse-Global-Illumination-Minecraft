@@ -184,7 +184,7 @@ vec3 get_direct_lighting(Isect info, vec3 light_vec) {
 	Isect temp_info;
 	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
 		float lambert = clamp(dot(normalize(info.normal),
-                                  normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
+                                  normalize(get_light(render_settings.scene, 0).pos - info.pos)),
                                   0.0, 1.0);
 		if (temp_info.type == 2) {
             return info.mat.base_color * lambert;
@@ -227,7 +227,7 @@ void main() {
 	Ray indirect_ray = r;
 	for(int i = 0; i < render_settings.max_bounces; i++) {
 		if (intersect_scene(indirect_ray, 0, INF, hit_info)) {
-			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
+			light_vec = normalize(get_light(render_settings.scene, 0).pos - hit_info.pos);
 			vec3 indirect_color_contribution = get_direct_lighting(hit_info, light_vec);
 			color += indirect_color_contribution;
 		} else {
