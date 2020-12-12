@@ -26,28 +26,26 @@ const float SQRT_OF_ONE_THIRD = 0.577350269;
 
 vec3 integrator_DDGI
 
-	(Ray   ray,     /* primary ray */
-	 float mint,    /* lower bound for t */
-	 float maxt,	/* upper bound for t */
-	 ivec3 probe_counts,
-	 int side_length,
-     vec3 field_origin)
+	(Ray   ray,          /* primary ray */
+	 float mint,         /* lower bound for t */
+	 float maxt,	     /* upper bound for t */
+	 ivec3 probe_counts, /* the dimensions of the irradiance field */
+	 int side_length,    /* the distance between two probes in the field */
+     vec3 field_origin)  /* the world space position of the center of the field */
 	 
 /*
-	Returns (1,1,1) for primary ray intersections and (0,0,0) otherwise.
+	Returns global illumination, i.e. direct lighting plus 
+    indirect lighting that is sampled from the probes
 */
 	 
 {
 
-    // Probes visualization here
-    
-    
     Isect info;
     bool intersect = intersect_scene(ray, mint, maxt, info);
     Isect temp_info;
 
     
-    if(irradiance_field.visualize) {
+    if(render_settings.visualize_probes) {    // Probes visualization here
         vec3 probe_pos = vec3(0);
         vec3 tgt_pos = vec3(2, 2, 2);
         ivec3 tgt_box = ivec3(floor(tgt_pos / float(side_length)));
@@ -73,25 +71,120 @@ vec3 integrator_DDGI
     if (!intersect)
         return col;
 
-    vec3 indirectLighting = get_diffuse_gi(info, probe_counts, side_length, ray);
+    vec3 indirect_lighting = get_diffuse_gi(info, probe_counts, side_length, ray);
 
-    // CHANGED: direct lighting
-    // this is just a hack so the light feeler ray can be calculated by the get intersection
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos));
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
-        if (temp_info.type == 2) {
+        if (temp_info.type == 2) { // test if it intersects the light
             float lambert = clamp(dot(normalize(info.normal),
                                       normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
                                   0.0, 1.0);
-            return 0.5 * info.mat.base_color * lambert + 0.5 * info.mat.base_color * indirectLighting;
+            return 0.5 * info.mat.base_color * lambert + 0.5 * info.mat.base_color * indirect_lighting;
         } else {
-            return indirectLighting * info.mat.base_color; 
+            return indirect_lighting * info.mat.base_color; 
         }
-    } // end of direct lighting
+    } 
 
 	return col;
 
 } /* integrator_DDGI */
+
+/*--------------------------------------------------------------------------*/
+
+vec3 integrator_direct
+
+    (Ray   ray,          /* primary ray */
+     float mint,         /* lower bound for t */
+     float maxt         /* upper bound for t */
+    )
+
+ /*
+    Returns only the direct lighting.
+*/
+     
+{
+    Isect info;
+    bool intersect = intersect_scene(ray, mint, maxt, info);
+    Isect temp_info;
+    
+    vec3 col = vec3(0, 0, 0);
+    if (!intersect)
+        return col;
+
+    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos));
+    if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
+        if (temp_info.type == 2) { // test if it intersects the light
+            float lambert = clamp(dot(normalize(info.normal),
+                                      normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
+                                  0.0, 1.0);
+            col = info.mat.base_color * lambert;
+        } else {
+            col = vec3(0); 
+        }
+    }
+
+    return col;
+
+} /* integrator_direct */
+
+/*--------------------------------------------------------------------------*/
+
+vec3 integrator_indirect
+
+    (Ray   ray,     /* primary ray */
+     float mint,    /* lower bound for t */
+     float maxt,    /* upper bound for t */
+     ivec3 probe_counts, /* the dimensions of the irradiance field */
+     int side_length,    /* the distance between two probes in the field */
+     vec3 field_origin)  /* the world space position of the center of the field */
+     
+/*
+    Returns only the indirect lighting that is sampled from probes,
+*/
+     
+{
+
+    Isect info;
+    bool intersect = intersect_scene(ray, mint, maxt, info);
+    Isect temp_info;
+
+    
+    if(render_settings.visualize_probes == true) { // Probes visualization here
+        vec3 probe_pos = vec3(0);
+        vec3 tgt_pos = vec3(2, 2, 2);
+        ivec3 tgt_box = ivec3(floor(tgt_pos / float(side_length)));
+        if (intersect_probes(ray, mint, maxt, probe_counts, side_length, temp_info, probe_pos, field_origin)) {
+            if (temp_info.t < info.t) {
+                // uncomment if you want there to be a check probes around a certain point
+                /*for (int i = 0; i < 8; i++) {
+                    ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
+                    ivec3 test_probe_pos = ivec3(round((tgt_box + offset) * side_length));
+                    if (distance(probe_pos, test_probe_pos) <= 0.001) {
+                        return vec3(1, 0, 1);
+                        break;
+                    }
+                }*/
+
+                return vec3(0, 1, 1); // probe color here
+            }
+        } 
+    }
+    
+
+    vec3 col = vec3(0, 0, 0);
+    if (!intersect)
+        return col;
+
+    vec3 indirect_lighting = get_diffuse_gi(info, probe_counts, side_length, ray);
+
+    Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos));
+    if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
+        return indirect_lighting;
+    }
+
+    return col;
+
+} /* integrator_indirect */
 
 /*--------------------------------------------------------------------------*/
 

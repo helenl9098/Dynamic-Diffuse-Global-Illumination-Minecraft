@@ -136,7 +136,7 @@ glm::mat4 Camera::get_pv_matrix()
 void Camera::update_imgui()
 {
     static bool is_active = true;
-    ImGui::SetNextWindowPos({0, 265}, ImGuiCond_Once);
+    ImGui::SetNextWindowPos({0, 425 }, ImGuiCond_Once);
     ImGui::SetNextWindowSize({200, 210}, ImGuiCond_Once);
 
     if (ImGui::Begin("Camera Data", &is_active))

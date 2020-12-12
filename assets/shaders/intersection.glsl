@@ -879,26 +879,26 @@ ivec2 get_text_coord_from_probe_number(int probe_number) {
 
 vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
-    // 1. Find where in the texture to sample
-	// this is the top left corner of the n * n square that 
-	// represents th probe in the texture
+    // Find where in the texture to sample.
+	// This is the top left corner of the n * n square that 
+	// represents the probe in the texture.
 	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
 	if (top_corner_text_coords == ivec2(-1, -1)) {
 		return vec3(1, 0, 1);
 	}
 	
-	//top_corner_text_coords = ivec2(9 * irradiance_field.sqrt_rays_per_probe, 1 * irradiance_field.sqrt_rays_per_probe);
-
-	// from the looks of things, they use the isect point's normal as the sample_probe(int probe_number, vec3 dir, int texture_to_sample) direction to sample
+	// From the paper, it looks like they use the isect point's normal as the direction to sample
 	// on the probe 
 	vec3 irradiance_dir = normalize(dir);
 
 	// need to change irradiance direction into a texture coord (relative to top left corner)
     ivec2 relative_text_coords = ivec2(0, 0);
+
     // float z = 1 - (2 * sample.x);
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
     relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
 
+    // Account for overflow.
     if(relative_text_coords[0] == irradiance_field.sqrt_rays_per_probe) {
     	relative_text_coords[0] = 0;
     }
@@ -908,10 +908,10 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
     float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
     relative_text_coords[1] = int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
 
-	// once I find the irradiance direction texture coord I add it to the top corner
+	// Once we find the irradiance direction texture coord, add it to the top corner
 	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
 
-	// now I sample the image from these coords
+	// Sample the image from these coords
 	vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;;
 	int count = 0;
 	int offset_distance = 2;
@@ -935,15 +935,10 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 			else if (texture_to_sample == 1) {
 				result += imageLoad(probe_image_distances, result_coords).xyz;
 			}
-			else if (texture_to_sample == 2) {
-				result += imageLoad(probe_image_normals, result_coords).xyz;
-			}
 		}
 	}
 
 	return result / count;
-	//return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1] * irradiance_field.probe_count[2]), 0, 0);
-	//return vec3(1, 0.5, 0);
 }
 
 /*--------------------------------------------------------------------------*/
@@ -964,33 +959,23 @@ bool intersect_scene
 	info.normal = vec3(0);
 	Isect temp_isect;
 
-	/* intersect spheres */
-	//for (int i = 0; i < spheres.length(); i++)
-	//{
-		//Sphere sphere = spheres[i];
-		
-		// inverse transform on the ray, needs to be changed to 3x3/4x4 mat 
-		Ray temp_ray;
-		temp_ray.origin = (ray.origin - get_light_pos_in_scene(scene)) / 0.5;
-		temp_ray.direction = ray.direction / 0.5;
-		
-        
-        //    g(x) = 0, x \in S
-        //    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
+	// inverse transform on the ray, needs to be changed to 3x3/4x4 mat 
+	Ray temp_ray;
+	temp_ray.origin = (ray.origin - get_light_pos_in_scene(scene)) / 0.5;
+	temp_ray.direction = ray.direction / 0.5;
+
             
-        intersect_sphere(temp_ray, mint, closest_t, temp_isect);
-		if (temp_isect.t<closest_t)
-		{
-			info = temp_isect;
-			Material mat = materials[0];
-			info.mat = convert_old_material(mat);
-			info.type = 2; 
-		}
-		closest_t = min(temp_isect.t, closest_t);
-	//} 
+    intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+	if (temp_isect.t<closest_t)
+	{
+		info = temp_isect;
+		Material mat = materials[0];
+		info.mat = convert_old_material(mat);
+		info.type = 2; 
+	}
+	closest_t = min(temp_isect.t, closest_t);
 
 	/* intersect light */
-
 
 	if (grid_march(ray, mint, maxt, temp_isect, scene)) {
 		if (temp_isect.t<closest_t)
@@ -1000,8 +985,6 @@ bool intersect_scene
 			info.type = 3;
 		}
 	}
-
-	//closest_t = min(temp_isect.t, closest_t);
 	
 	info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
 					
@@ -1009,7 +992,7 @@ bool intersect_scene
 
 	info.pos += 0.001 * info.normal;
 	
-	return closest_t<INF;
+	return closest_t < INF;
 	
 } /* intersect_scene */
 

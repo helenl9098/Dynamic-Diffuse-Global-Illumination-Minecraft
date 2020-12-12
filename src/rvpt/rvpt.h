@@ -23,10 +23,13 @@
 
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
-static const char* RenderModes[] = {"binary",       "color",          "depth",
-                                    "normals",      "Utah model",     "ambient occlusion",
-                                    "Arthur Appel", "Turner Whitted", "Robert Cook",
-                                    "James Kajiya", "John Hart"};
+static const char* RenderModes[] = {"DDGI",
+                                    "direct lighting",
+                                    "indirect lighting",
+                                    "color",
+                                    "normals",
+                                    "depth"
+};
 
 class RVPT
 {
@@ -56,13 +59,10 @@ public:
     void shutdown();
 
     void reload_shaders();
-    void toggle_debug();
-    void toggle_wireframe_debug();
     void set_raytrace_mode(int mode);
 
     void add_material(Material material);
     void add_sphere(Sphere sphere);
-    void add_triangle(Triangle triangle);
     void generate_probe_rays();
 
     void get_asset_path(std::string& asset_path);
@@ -74,33 +74,37 @@ public:
     {
         alignas(4) int screen_width = 1600;
         alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 8;
+        alignas(4) int max_bounces = 5;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
+        alignas(4) int visualize_probes = 0;
     } render_settings;
 	
 	// S_CHANGE
     struct IrradianceField
     {
         alignas(16) glm::ivec3 probe_count = glm::ivec3(5, 5, 5); // number of probes in x, y, z directions
-        int side_length = 6.0;                      // side length of the cubes that encase the probe
+        int side_length = 6;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
         int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
         alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
-        bool visualize = true;
+
     };
+
     IrradianceField ir;
 
 private:
+    bool need_change_probe_texture = false;
+    bool need_generate_probe_rays = true;
+
     bool show_imgui = true;
 
     // from a callback
     bool framebuffer_resized = false;
 
-    // enable debug overlay
-    bool debug_overlay_enabled = false;
-    bool debug_wireframe_mode = false;
+    // enable probe visualization
+    bool visualize_probes = false;
 
     Window& window_ref;
     std::string source_folder = "";
@@ -113,7 +117,6 @@ private:
     std::vector<float> random_numbers;
 
     std::vector<Sphere> spheres;
-    std::vector<Triangle> triangles;
     std::vector<Material> materials;
     std::vector<ProbeRay> probe_rays;
 
@@ -176,7 +179,6 @@ private:
         VK::GraphicsPipelineHandle debug_wireframe_pipeline;
 
         VK::Image probe_texture_albedo;
-        VK::Image probe_texture_normals;
         VK::Image probe_texture_distance;
         VK::Image block_texture; // HELEN: ADDED THIS
         VK::Image depth_buffer;
@@ -215,6 +217,8 @@ private:
     bool swapchain_reinit();
     bool swapchain_get_images();
     void create_framebuffers();
+    VK::Image create_probe_texture_albedo();
+    void recreate_probe_textures();
 
     RenderingResources create_rendering_resources();
     void add_per_frame_data(int index);

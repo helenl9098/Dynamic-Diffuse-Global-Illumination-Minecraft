@@ -20,29 +20,28 @@ layout(binding = 0) uniform RenderSettings
     int camera_mode;
     int render_mode;
     int scene;
+    bool visualize_probes;
 }
 render_settings;
 
 layout(std430, binding = 1) buffer ProbeRays { ProbeRay rays[]; };
 
 layout(binding = 2, rgba8) uniform image2D probe_image_albedo;
-layout(binding = 3, rgba8) uniform image2D probe_image_normals;
-layout(binding = 4, rgba8) uniform image2D probe_image_distances;
+layout(binding = 3, rgba8) uniform image2D probe_image_distances;
 
-layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
-layout(std430, binding = 6) buffer Materials { Material materials[]; };
-layout(binding = 7) uniform IrradianceField
+layout(std430, binding = 4) buffer Spheres { Sphere spheres[]; };
+layout(std430, binding = 5) buffer Materials { Material materials[]; };
+layout(binding = 6) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
     float hysteresis;
     int sqrt_rays_per_probe;
     vec3 field_origin;
-    bool visualize;
 } irradiance_field;
 
 
-//// TAKEN FROM UTILS.GLSL (not included because of absent variables) ///////
+//// TAKEN FROM UTILS.GLSL (file not included because of absent variables) ///////
 
 uint wang_hash(uint seed)
 {
@@ -244,6 +243,5 @@ void main() {
 	color = mix(old_color, color, irradiance_field.hysteresis);*/
 
 	imageStore(probe_image_albedo, texture_coords, vec4(color, 1.0));
-	imageStore(probe_image_normals, texture_coords, vec4(normal, 0.0));
 	imageStore(probe_image_distances, texture_coords, vec4(distances, 0.0, 0.0));
 }

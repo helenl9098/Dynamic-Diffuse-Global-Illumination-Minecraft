@@ -20,6 +20,7 @@ layout(binding = 0) uniform RenderSettings
     int camera_mode;
     int render_mode;
     int scene;
+    bool visualize_probes;
 }
 render_settings;
 
@@ -38,20 +39,18 @@ layout(std430, binding = 4) buffer Spheres { Sphere spheres[]; };
 layout(std430, binding = 5) buffer Materials { Material materials[]; };
 
 layout(binding = 6, rgba8) uniform readonly image2D probe_image_albedo;
-layout(binding = 7, rgba8) uniform readonly image2D probe_image_normals;
-layout(binding = 8, rgba8) uniform readonly image2D probe_image_distances;
+layout(binding = 7, rgba8) uniform readonly image2D probe_image_distances;
 
-layout(binding = 9) uniform IrradianceField
+layout(binding = 8) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
     float hysteresis;
     int sqrt_rays_per_probe;
     vec3 field_origin;
-    bool visualize;
 } irradiance_field;
 
-layout(binding = 10, rgba8) uniform readonly image2D block_texture;
+layout(binding = 9, rgba8) uniform readonly image2D block_texture;
 
 #include "util.glsl"
 #include "camera.glsl"
@@ -114,25 +113,21 @@ vec3 eval_integrator
                                             irradiance_field.side_length,
                                             irradiance_field.field_origin);
     case 1:
-		return integrator_color(ray, 0, INF);
+		return integrator_direct(ray, 0, INF);
 	case 2:
-		return integrator_depth(ray, 0, INF);
+		return integrator_indirect(ray, 0, INF, irradiance_field.probe_count,
+                                                irradiance_field.side_length,
+                                                irradiance_field.field_origin);
 	case 3:
-		return integrator_normal(ray, 0, INF);
+		return integrator_color(ray, 0, INF);
     case 4:
-        return integrator_Utah(ray, 0, INF);
+        return integrator_normal(ray, 0, INF);
 	case 5:
-		return integrator_ao(ray, 0, INF, render_settings.max_bounces);
-    case 6:
-        return integrator_Appel(ray, 0, INF);
-    case 7:
-        return integrator_Whitted(ray, 0, INF, render_settings.max_bounces);    
-    case 8:
-        return integrator_Cook(ray, 0, INF, render_settings.max_bounces);
-	case 9:
-		return integrator_Kajiya(ray, 0, INF, render_settings.max_bounces);
+		return integrator_depth(ray, 0, INF);
     default:
-        return integrator_Hart(ray, 0, INF);
+        return integrator_DDGI(ray, 0, INF, irradiance_field.probe_count,
+                                            irradiance_field.side_length,
+                                            irradiance_field.field_origin);
 	}
 }
 
@@ -165,9 +160,9 @@ ivec2 get_texture_coords_of_probe_index(int index) {
 // DEBUGGING: use this if you want to display the entire probe texture
 ivec2 get_probe_image_coords(vec2 original) {
     int probe_texture_width  = irradiance_field.probe_count.x * irradiance_field.probe_count.z
-                                * irradiance_field.sqrt_rays_per_probe * 2;
+                                * irradiance_field.sqrt_rays_per_probe;
     int probe_texture_height = irradiance_field.probe_count.y
-                                * irradiance_field.sqrt_rays_per_probe * 2;
+                                * irradiance_field.sqrt_rays_per_probe;
 
     return ivec2(int(original.x * probe_texture_width / render_settings.screen_width),
                  int(original.y * probe_texture_height / render_settings.screen_height));
@@ -179,26 +174,21 @@ void main()
 		Integrators enumeration:
 		
 		0: DDGI
-        1: color
-		2: depth
-		3: normal
-		4: ao
-        5: Appel
-		6: Kajiya
-		
+        1: direct lighting
+		2: indirect lighting
+		3: color
+		4: normal
+        5: depth
 	*/
+
     int integrator_idx = render_settings.render_mode;
-    vec2 pixel_split = vec2(gl_GlobalInvocationID) / dim;
 
     vec3 sampled = vec3(0);
-    for (int i = 0; i < 1; i++)
-    {
-        vec2 coord = vec2(gl_GlobalInvocationID.xy) / dim; 
-		coord.y = 1.0-coord.y; /* flip image vertically */
+    vec2 coord = vec2(gl_GlobalInvocationID.xy) / dim; 
+	coord.y = 1.0-coord.y; /* flip image vertically */
         
-		Ray ray = get_camera_ray(render_settings.camera_mode, coord.x, coord.y);
-		sampled += eval_integrator(integrator_idx, ray);
-	}
+	Ray ray = get_camera_ray(render_settings.camera_mode, coord.x, coord.y);
+	sampled += eval_integrator(integrator_idx, ray);
 
     ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
 
