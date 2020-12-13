@@ -167,12 +167,13 @@ void RVPT::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, 
 }
 
 VK::Image RVPT::create_block_texture()
-{ 
-    int tex_width, tex_height, tex_channels; 
+{
+    int tex_width = 512, tex_height = 512, tex_channels;
+    VkDeviceSize image_size = tex_width * tex_height * 4;
+    /*
     stbi_uc* pixels =
     stbi_load("../img/statue.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
 
-    VkDeviceSize image_size = tex_width * tex_height * 4;
 
     if (!pixels)
     {
@@ -191,7 +192,7 @@ VK::Image RVPT::create_block_texture()
     memcpy(data, pixels, static_cast<size_t>(image_size));
     vkUnmapMemory(vk_device, staging_buffer_memory);
 
-    stbi_image_free(pixels);
+    stbi_image_free(pixels);*/
 
     auto block_texture_image =
         VK::Image(vk_device, memory_allocator, *graphics_queue, "block_texture",
@@ -201,7 +202,7 @@ VK::Image RVPT::create_block_texture()
                   static_cast<VkDeviceSize>(image_size),
                   VK::MemoryUsage::gpu);
 
-    transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+    /*transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     copy_buffer_to_image(staging_buffer, block_texture_image.get(), static_cast<uint32_t>(tex_width),
@@ -212,7 +213,7 @@ VK::Image RVPT::create_block_texture()
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     vkDestroyBuffer(vk_device, staging_buffer, nullptr);
-    vkFreeMemory(vk_device, staging_buffer_memory, nullptr);
+    vkFreeMemory(vk_device, staging_buffer_memory, nullptr);*/
 
     return std::move(block_texture_image);
 
@@ -369,12 +370,12 @@ void RVPT::update_imgui()
         }
         ImGui::Text("Number of Probe Rays");
 
-        if (ImGui::SliderInt("(sqrt)", &ir.sqrt_rays_per_probe, 2, 30))
+        if (ImGui::SliderInt("(sqrt)", &ir.sqrt_rays_per_probe, 2, 40))
         {
             need_change_probe_texture = true;
         }
         ImGui::Text("Probe Distance");
-        if (ImGui::SliderInt("dist", &ir.side_length, 2, 15))
+        if (ImGui::SliderInt("dist", &ir.side_length, 2, 20))
         {
             need_generate_probe_rays = true;
         }
