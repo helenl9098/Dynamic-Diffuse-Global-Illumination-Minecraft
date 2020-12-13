@@ -238,7 +238,23 @@ vec3 get_direct_lighting(Isect info) {
 	// return vec3(0, 0, 0);
 }
 
+void update_lights() {
+    for (int i = 0; i < num_lights[0]; i++) {
+        lights_0[i].pos -= vec3(0.00005f * render_settings.time);
+    }
+
+    for (int i = 0; i < num_lights[1]; i++) {
+        lights_1[i].pos -= vec3(0.005f * render_settings.time);
+    }
+
+    for (int i = 0; i < num_lights[2]; i++) {
+        lights_2[i].pos += vec3(0.00005f * render_settings.time);
+    }
+}
+
 void main() {
+	update_lights();
+
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;
 	

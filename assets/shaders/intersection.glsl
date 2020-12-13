@@ -1045,6 +1045,7 @@ bool intersect_scene
             info = temp_isect;
             Material mat = materials[0];
             info.mat = convert_old_material(mat);
+            info.mat.emissive = get_light(scene, i).col;
             info.type = 2;
         }
         closest_t = min(temp_isect.t, closest_t);

@@ -175,17 +175,16 @@ ivec2 get_probe_image_coords(vec2 original) {
 }
 
 void update_lights() {
-return;
     for (int i = 0; i < num_lights[0]; i++) {
-        lights_0[i].pos += vec3(0.0000001f * render_settings.time);
+        lights_0[i].pos -= vec3(0.00005f * render_settings.time);
     }
 
     for (int i = 0; i < num_lights[1]; i++) {
-        lights_1[i].pos += vec3(0.0000001f * render_settings.time);
+        lights_1[i].pos -= vec3(0.005f * render_settings.time);
     }
 
     for (int i = 0; i < num_lights[2]; i++) {
-        lights_2[i].pos += vec3(0.0000001f * render_settings.time);
+        lights_2[i].pos += vec3(0.00005f * render_settings.time);
     }
 }
 

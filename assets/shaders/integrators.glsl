@@ -70,6 +70,9 @@ vec3 integrator_DDGI
     vec3 col = vec3(0, 0, 0);
     if (!intersect) return col;
 
+    // returns the light color if a light sphere is hit
+    if (info.type == 2) return info.mat.emissive;
+
     vec3 indirectLighting = get_diffuse_gi(info, probe_counts, side_length, ray);
 
     // this is just a hack so the light feeler ray can be calculated by the get intersection
@@ -94,14 +97,15 @@ vec3 integrator_DDGI
         }
     }
 
+
     if (num_visible_lights != 0)
     {
-        return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights));
+        // return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights));
 
         return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights)) +
                0.5 * info.mat.base_color * indirectLighting;
     }
-    return vec3(0.f);
+    // return vec3(0.f);
     return 0.5 * indirectLighting * info.mat.base_color;
 
 

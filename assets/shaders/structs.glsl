@@ -58,9 +58,9 @@ struct Light
     vec3 pos;
 };
 
-const int num_lights_0 = 1;
-const int num_lights_1 = 2;
-const int num_lights_2 = 2;
+//const int num_lights_0 = 1;
+//const int num_lights_1 = 2;
+//const int num_lights_2 = 2;
 
 const int num_lights[3] = {1, 2, 2};
 
