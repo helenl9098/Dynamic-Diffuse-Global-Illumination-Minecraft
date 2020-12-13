@@ -59,7 +59,7 @@ void load_model(RVPT& rvpt, std::string inputfile, int material_id)
             //rvpt.add_triangle(Triangle(vertices[0], vertices[1], vertices[2], material_id));
 
             // per-face material
-            shapes[s].mesh.material_ids[f];
+            //shapes[s].mesh.material_ids[f];
         }
     }
 
@@ -101,16 +101,10 @@ int main()
 
     RVPT rvpt(window);
 
-    load_model(rvpt, "models/cube.obj", 1);
-
     // Setup Demo Scene
     rvpt.generate_probe_rays();
 
-    rvpt.add_material(Material(glm::vec4(1, 1, 0, 0), glm::vec4(10.0, 50.0, 50.0, 0),
-                               Material::Type::LAMBERT));
     rvpt.add_sphere(Sphere(glm::vec3(0, 0, 0), 0.f, 0));
-    rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
-    rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
 
 
 

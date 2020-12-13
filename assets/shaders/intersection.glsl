@@ -717,11 +717,6 @@ int small_mushroom(vec3 p) {
 }
 
 int medium_mushroom(vec3 p) {
-	/*
-	if (sdDisk(p, 3, 0) < 0 && p.y == 0) {
-		return true;
-	}
-	return false; */
 	if (sdRoundBox(p, vec3(2, 0.5, 2), 1.0) <= 0) {
 		if (p.y > 0) {
 			return 6;
@@ -1021,6 +1016,13 @@ vec2 getUVs(vec3 point, vec3 normal) {
 	return result_uv;
 }
 
+float dotsPattern(vec2 point, float radius, float cellSize) {
+    float c = 4.0 * radius * cellSize;
+    float h = c / 2.0;
+    point = mod(point + h, c) - h;
+    return length(point) - radius;
+}
+
 vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	/* BLOCK TYPE KEY: 
 	0: EMPTY
@@ -1029,14 +1031,14 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	3. GREEN
 	4. BLUE
 	5. WHITE
-	6. MUSHROOM BLOCK 1
+	6. MUSHROOM BLOCK 1 // Janine
 	7. MUSHROOM BLOCK 2
 	8. MUSHROOM BLOCK 3
-	9. MUSHROOM STEM
-	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
-	11. CAVE GROUND (RED)
-	12. CAVE GROUND MOSS (GREEN)
-	13. CAVE GROUND MOLD (BLUE)
+	9. MUSHROOM STEM // Janine
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN) // helen
+	11. CAVE GROUND (RED) // helen
+	12. CAVE GROUND MOSS (GREEN) // Spencer
+	13. CAVE GROUND MOLD (BLUE) // spencer
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
@@ -1108,16 +1110,67 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		// return vec4(1)
 	}
 	else if (block_type == 10) {
-		return vec4(1, 0.5, 0, 1);
+		//return vec4(1, 0.5, 0, 1);
+		vec4 color = vec4(0.568, 0.133, 0.439, 1.0);
+		if (point.y < -8) {
+			color = vec4(0.349, 0.133, 0.427, 1.0);
+		}
+		else if (point.y < -6) {
+			color = vec4(0.568, 0.133, 0.439, 1.0);
+		}
+		else if (point.y < -5) {
+			color = vec4(0.639, 0.176, 0.725, 1);
+		}
+		else if (point.y < 0) {
+			color =vec4(0.274, 0.188, 0.772, 1);
+		}
+		else if (point.y < 4) {
+			color = vec4(0.341, 0.270, 0.768, 1);
+		}
+		else if (point.y < 6) {
+			color = vec4(0.368, 0.203, 0.415, 1);
+		}
+		else if (point.y < 11) {
+			color = vec4(0.470, 0.270, 0.729, 1);
+		}
+		vec2 uv = getUVs(point, normal);
+		float r = fbm(0.05, (uv.y + point.y) * 0.3);
+		vec3 wallColor = vec3(0.294, 0.007, 0.152);
+		vec3 combined = mix(wallColor, vec3(color), r);
+		//return color * r;
+		//return color;
+		return vec4(combined, 1);
 	}
 	else if (block_type == 11) {
-		return vec4(1, 0, 0, 1);
+		//return vec4(1, 0, 0, 1);
+		//vec3 color = vec3(0.070, 0.137, 0.670);
+		vec3 color = vec3(0.294, 0.007, 0.152);
+		vec3 moldcolor = vec3(0.901, 0.992, 0.427);
+		float r = (random1(ceil(point)) / 3); // range of 0.3 to 0.8
+		vec3 combined = mix(color, moldcolor, r);
+
+		vec2 uv = getUVs(point, normal);
+		r = fbm(uv.x * 2.0, uv.y * 2.0); 
+		//if (r < 0.5) {
+			combined = mix(combined, vec3(0.639, 0.176, 0.725), r / 2.0);
+		//}
+		/** mushroom dots 
+		vec3 fragColor = vec3(0.070, 0.137, 0.670);
+		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
+        float radius = 0.05;
+    	float dist = dotsPattern(uv, radius, 1.8);
+    	vec3 dotcolor = vec3(0.349, 0.133, 0.427);
+    	vec3 bg = fragColor;
+    	float circle = (radius - dist) * 100.0;
+    	float alpha = clamp(circle, 0.0, 1.0);
+    	vec3 color = mix(bg, dotcolor, alpha); **/
+		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
-		return vec4(0, 1, 0, 1);
+		return vec4(0.619, 1, 0.278, 1);
 	}
 	else if (block_type == 13) {
-		return vec4(0, 0, 1, 1);
+		return vec4(0.356, 1, 0.101, 1);
 	}
 }
 
@@ -1158,7 +1211,8 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
 
         	info.normal = normalize(normal);
 
-        	Material mat = materials[1]; // TO DO: Don't hard code this
+
+        	Material mat;
         	mat.albedo = getColorAt(ray_origin, block_type, normalize(normal));
 			info.mat = convert_old_material(mat);
 
@@ -1329,7 +1383,8 @@ bool intersect_scene
 	if (temp_isect.t<closest_t)
 	{
 		info = temp_isect;
-		Material mat = materials[0];
+		Material mat;
+		mat.albedo = vec4(1, 1, 1, 1);
 		info.mat = convert_old_material(mat);
 		info.type = 2; 
 	}
@@ -1481,7 +1536,8 @@ bool intersect_cubes_scene
 		if (temp_isect.t<closest_t)
 		{
 			info = temp_isect;
-			Material mat = materials[int(sphere.mat_id.x)];
+			Material mat;
+			mat.albedo = vec4(1, 1, 1, 1);
 			info.mat = convert_old_material(mat);
 		}
 		closest_t = min(temp_isect.t, closest_t);
@@ -1823,9 +1879,10 @@ bool intersect_spheres(Ray ray, inout Record record)
                 record.distance = distance;
                 record.intersection = ray.origin + ray.direction * distance;
                 record.normal = normalize(record.intersection - sphere.origin);
-                record.mat = materials[int(sphere.mat_id.x)];
-                record.albedo = materials[int(sphere.mat_id.x)].albedo.xyz;
-                record.emission = materials[int(sphere.mat_id).x].emission.xyz;
+                Material mat;
+                record.mat = mat;
+                record.albedo = vec3(1, 1, 1);
+                record.emission = vec3(1, 1, 1);
             }
         }
     }
