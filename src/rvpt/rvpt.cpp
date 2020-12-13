@@ -41,9 +41,7 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
-                  VkBufferUsageFlags usage,
-                  VkMemoryPropertyFlags properties,
+void RVPT::create_staging_buffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
                   VkBuffer& buffer, VkDeviceMemory& bufferMemory)
 {
     VkBufferCreateInfo bufferInfo{};
@@ -63,7 +61,7 @@ void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
@@ -73,31 +71,135 @@ void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
-{ 
-    int texWidth, texHeight, texChannels; 
-    stbi_uc* pixels =
-    stbi_load("../img/statue.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+void RVPT::transition_image_layout(VkImage image, VkFormat format,
+                             VkImageLayout oldLayout,
+                             VkImageLayout newLayout)
+{
+    auto command_buffer = VK::CommandBuffer(vk_device, *graphics_queue, "transition_image_buffer");
 
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    command_buffer.begin();
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+             newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else
+    {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+
+    vkCmdPipelineBarrier(command_buffer.get(),
+                         sourceStage,
+                         destinationStage,
+                         0,
+                         0,
+                         nullptr,
+                         0,
+                         nullptr,
+                         1,
+                         &barrier);
+
+    command_buffer.end();
+}
+
+void RVPT::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height) {
+    auto command_buffer = VK::CommandBuffer(vk_device, *graphics_queue, "transition_image_buffer");
+
+    command_buffer.begin();
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+
+    vkCmdCopyBufferToImage(
+        command_buffer.get(),
+        buffer,
+        image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &region
+    );
+
+    command_buffer.end();
+}
+
+VK::Image RVPT::create_block_texture()
+{ 
+    int tex_width, tex_height, tex_channels; 
+    stbi_uc* pixels =
+    stbi_load("../img/statue.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
+
+    VkDeviceSize image_size = tex_width * tex_height * 4;
 
     if (!pixels)
     {
         throw std::runtime_error("failed to load texture image!");
     }
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
 
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    VK::Buffer staging_buffer =
+        VK::Buffer(vk_device, memory_allocator, "staging_buffer", VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                   image_size, VK::MemoryUsage::cpu_to_gpu);
+    staging_buffer.copy_to(pixels);
 
     stbi_image_free(pixels);
+
+    auto block_texture_image =
+        VK::Image(vk_device, memory_allocator, *graphics_queue, "block_texture",
+                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, tex_width,
+                  tex_height, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                  static_cast<VkDeviceSize>(image_size),
+                  VK::MemoryUsage::gpu);
+
+    transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    copy_buffer_to_image(staging_buffer.get(), block_texture_image.get(), static_cast<uint32_t>(tex_width),
+                      static_cast<uint32_t>(tex_height));
+
+    transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB,
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    return std::move(block_texture_image);
 
 }
 
@@ -572,20 +674,6 @@ void RVPT::create_framebuffers()
     }
 }
 
-VK::Image RVPT::create_probe_texture_albedo() {
-    int probe_texture_width = ir.probe_count.x * ir.probe_count.z * ir.sqrt_rays_per_probe;
-    int probe_texture_height = ir.probe_count.y * ir.sqrt_rays_per_probe;
-
-    auto probe_texture_albedo =
-        VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture_albedo",
-                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
-                  probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-                  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                  static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
-                  VK::MemoryUsage::gpu);
-    return std::move(probe_texture_albedo);
-}
-
 void RVPT::recreate_probe_textures() {
     for (int i = 0; i < per_frame_data.size(); i++)
     {
@@ -641,7 +729,7 @@ void RVPT::recreate_probe_textures() {
                 std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
             raytracing_descriptors.push_back(
                 std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-            // S_CHANGED
+            
             raytracing_descriptors.push_back(
                 std::vector{frame.irradiance_field_uniform.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{
@@ -711,16 +799,16 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
 
     auto fullscreen_triangle_pipeline = pipeline_builder.create_pipeline(fullscreen_details);
     std::vector<VkDescriptorSetLayoutBinding> compute_layout_bindings = {
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
-        {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
+        {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
         {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+		{8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // irradiance field info
+        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // block texture
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -802,11 +890,17 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     debug_details.polygon_mode = VK_POLYGON_MODE_LINE;
     auto wireframe = pipeline_builder.create_pipeline(debug_details);
 
+    /* LOOK: These are the actual definitions of the textures using VK::Image */
     int probe_texture_width = ir.probe_count.x * ir.probe_count.z * ir.sqrt_rays_per_probe;
     int probe_texture_height = ir.probe_count.y * ir.sqrt_rays_per_probe;
 
-    /* LOOK: These are the actual definitions of the textures using VK::Image */
-    auto probe_texture_albedo = create_probe_texture_albedo();
+    auto probe_texture_albedo =
+        VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture_albedo",
+                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
+                  probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                  static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+                  VK::MemoryUsage::gpu);
 
     auto probe_texture_distance = VK::Image(
         vk_device,
@@ -824,24 +918,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         VK::MemoryUsage::gpu
     );
 
-    // HELEN: ADDED THIS
-    auto block_texture = VK::Image(
-        vk_device, 
-        memory_allocator, 
-        *graphics_queue, 
-        "block_texture",
-        VK_FORMAT_R8G8B8A8_UNORM, 
-        VK_IMAGE_TILING_OPTIMAL, 
-        512,
-        512, 
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(512 * 512 * 4),
-        VK::MemoryUsage::gpu
-    );
-
-    //createTextureImage(context.device.physical_device.physical_device, vk_device);
+    auto block_texture = create_block_texture();
 
     VkFormat depth_format =
         VK::get_depth_image_format(context.device.physical_device.physical_device);
@@ -871,7 +948,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
                                     wireframe,
                                     std::move(probe_texture_albedo),
                                     std::move(probe_texture_distance),
-                                    std::move(block_texture), // HELEN: ADDED THIS
+                                    std::move(block_texture),
                                     std::move(depth_image)};
 }
 

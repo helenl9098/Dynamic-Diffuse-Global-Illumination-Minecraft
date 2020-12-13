@@ -217,8 +217,17 @@ private:
     bool swapchain_reinit();
     bool swapchain_get_images();
     void create_framebuffers();
-    VK::Image create_probe_texture_albedo();
     void recreate_probe_textures();
+
+    // related to uploading a texture
+    void transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout,
+                                 VkImageLayout newLayout);
+    void copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+    VK::Image create_block_texture();
+
+    void create_staging_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                               VkMemoryPropertyFlags properties, VkBuffer& buffer,
+                               VkDeviceMemory& bufferMemory);
 
     RenderingResources create_rendering_resources();
     void add_per_frame_data(int index);
