@@ -56,7 +56,7 @@ void load_model(RVPT& rvpt, std::string inputfile, int material_id)
             }
             index_offset += fv;
 
-            rvpt.add_triangle(Triangle(vertices[0], vertices[1], vertices[2], material_id));
+            //rvpt.add_triangle(Triangle(vertices[0], vertices[1], vertices[2], material_id));
 
             // per-face material
             shapes[s].mesh.material_ids[f];
@@ -149,7 +149,7 @@ int main()
         window.poll_events();
         if (window.is_key_down(Window::KeyCode::KEY_ESCAPE)) window.set_close();
         if (window.is_key_down(Window::KeyCode::KEY_R)) rvpt.reload_shaders();
-        if (window.is_key_down(Window::KeyCode::KEY_V)) rvpt.toggle_debug();
+        //if (window.is_key_down(Window::KeyCode::KEY_V)) rvpt.toggle_debug();
         if (window.is_key_up(Window::KeyCode::KEY_ENTER))
         {
             window.set_mouse_window_lock(!window.is_mouse_locked_to_window());

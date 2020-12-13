@@ -928,88 +928,70 @@ ivec2 get_text_coord_from_probe_number(int probe_number)
     return result * irradiance_field.sqrt_rays_per_probe;
 }
 
-vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample)
-{
-    // 1. Find where in the texture to sample
-    // this is the top left corner of the n * n square that
-    // represents th probe in the texture
-    ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
-    if (top_corner_text_coords == ivec2(-1, -1))
-    {
-        return vec3(1, 0, 1);
-    }
+vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
-    // top_corner_text_coords = ivec2(9 * irradiance_field.sqrt_rays_per_probe, 1 *
-    // irradiance_field.sqrt_rays_per_probe);
+    // Find where in the texture to sample.
+	// This is the top left corner of the n * n square that 
+	// represents the probe in the texture.
+	ivec2 top_corner_text_coords = get_text_coord_from_probe_number(probe_number);
+	if (top_corner_text_coords == ivec2(-1, -1)) {
+		return vec3(1, 0, 1);
+	}
+	
+	// From the paper, it looks like they use the isect point's normal as the direction to sample
+	// on the probe 
+	vec3 irradiance_dir = normalize(dir);
 
-    // from the looks of things, they use the isect point's normal as the sample_probe(int
-    // probe_number, vec3 dir, int texture_to_sample) direction to sample on the probe
-    vec3 irradiance_dir = normalize(dir);
-
-    // need to change irradiance direction into a texture coord (relative to top left corner)
+	// need to change irradiance direction into a texture coord (relative to top left corner)
     ivec2 relative_text_coords = ivec2(0, 0);
+
     // float z = 1 - (2 * sample.x);
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
     relative_text_coords[0] =
         int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
 
-    if (relative_text_coords[0] == irradiance_field.sqrt_rays_per_probe)
-    {
-        relative_text_coords[0] = 0;
+    // Account for overflow.
+    if(relative_text_coords[0] == irradiance_field.sqrt_rays_per_probe) {
+    	relative_text_coords[0] = 0;
     }
 
     // float x = cos(2* pi * sample.y) * sqrt(1 - (z * z));
     // y = (acos(x / (sqrt(1 - (z * z)))) / (2 * pi)) * sqrt_num_rays
     float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
-    relative_text_coords[1] =
-        int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
 
-    // once I find the irradiance direction texture coord I add it to the top corner
-    ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
+    relative_text_coords[1] = int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
 
-    // now I sample the image from these coords
-    vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;
-    ;
-    int count = 0;
-    int offset_distance = 2;
-    for (int x = -offset_distance; x <= offset_distance; x++)
-    {
-        int temp = sample_text_coord.x + x;
-        if (temp < top_corner_text_coords.x ||
-            temp >= top_corner_text_coords.x + irradiance_field.sqrt_rays_per_probe)
-        {
-            continue;
-        }
-        for (int y = -offset_distance; y <= offset_distance; y++)
-        {
-            ivec2 offsets = ivec2(x, y);
-            ivec2 result_coords = sample_text_coord + offsets;
-            if (result_coords.y < top_corner_text_coords.y ||
-                result_coords.y >= top_corner_text_coords.y + irradiance_field.sqrt_rays_per_probe)
-            {
-                continue;
-            }
+	// Once we find the irradiance direction texture coord, add it to the top corner
+	ivec2 sample_text_coord = top_corner_text_coords + relative_text_coords;
 
-            count++;
+	// Sample the image from these coords
+	vec3 result = imageLoad(probe_image_albedo, sample_text_coord).xyz;;
+	int count = 0;
+	int offset_distance = 2;
+	for (int x = -offset_distance; x <= offset_distance; x++) {
+		int temp = sample_text_coord.x + x;
+		if(temp < top_corner_text_coords.x || temp >= top_corner_text_coords.x + irradiance_field.sqrt_rays_per_probe) {
+			continue;
+		}
+		for (int y = -offset_distance; y <= offset_distance; y++) {
+			ivec2 offsets = ivec2(x, y);
+			ivec2 result_coords = sample_text_coord + offsets;
+			if(result_coords.y < top_corner_text_coords.y || result_coords.y >= top_corner_text_coords.y + irradiance_field.sqrt_rays_per_probe) {
+				continue;
+			}
 
-            if (texture_to_sample == 0)
-            {
-                result += imageLoad(probe_image_albedo, result_coords).xyz;
-            }
-            else if (texture_to_sample == 1)
-            {
-                result += imageLoad(probe_image_distances, result_coords).xyz;
-            }
-            else if (texture_to_sample == 2)
-            {
-                result += imageLoad(probe_image_normals, result_coords).xyz;
-            }
-        }
-    }
+			count++;
 
-    return result / count;
-    // return vec3(probe_number / (irradiance_field.probe_count[0] * irradiance_field.probe_count[1]
-    // * irradiance_field.probe_count[2]), 0, 0); return vec3(1, 0.5, 0);
+			if (texture_to_sample == 0) {
+				result += imageLoad(probe_image_albedo, result_coords).xyz;
+			} 
+			else if (texture_to_sample == 1) {
+				result += imageLoad(probe_image_distances, result_coords).xyz;
+			}
+		}
+	}
+
+	return result / count;
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1087,7 +1069,6 @@ bool intersect_scene
     info.pos += 0.001 * info.normal;
 
     return closest_t < INF;
-
 } /* intersect_scene */
 
 /*--------------------------------------------------------------------------*/
