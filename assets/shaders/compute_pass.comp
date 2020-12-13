@@ -175,20 +175,16 @@ void update_lights() {
         float t = 0.05f * render_settings.time;
 
         if (i == 0) {
-            float y = lights_0[i].pos.y + 4 * sin(t);
+            float x = lights_0[i].pos.x;
+            float y = lights_0[i].pos.y;
+            float z = lights_0[i].pos.z + 10 * cos(t * 0.1);
+			lights_0[i].pos = vec3(lights_0[i].pos.x, y, z);
             continue;
         }
         
-        // float x = lights_0[i].pos.x + (i + 1) * t;
-        // // float y = lights_0[i].pos.y + (i / 2) * 4 * sin(t);
-        // float y = lights_0[i].pos.y - (i + 2) * t;
-        // float z = lights_0[i].pos.z + (i + 1) * cos(t);
-        // lights_0[i].pos = vec3(x, y, z);
-		// // lights_0[i].pos -= vec3(0.00005f * render_settings.time);
-
-        float x = lights_0[i].pos.x + pow(-1, i * 3) * (i + 1) * 2 * sin(t);
-        float y = lights_0[i].pos.y + pow(-1, i) * (i / 2) * 4 * sin(t);
-        float z = lights_0[i].pos.z + pow(-1, i * 3) * (i + 1) * 2 * cos(t);
+        float x = lights_0[i].pos.x + (i + 1) * 2 * sin(t * 0.5);
+        float y = lights_0[i].pos.y + (i / 2) * 4 * sin(t * 0.5);
+        float z = lights_0[i].pos.z + (i + 1) * 2 * cos(t * 0.5);
         lights_0[i].pos = vec3(x, y, z);
      }
     
