@@ -43,7 +43,6 @@ vec3 integrator_DDGI
     Isect info;
     bool intersect = intersect_scene(ray, mint, maxt, info);
     Isect temp_info;
-
     
     if(render_settings.visualize_probes) {    // Probes visualization here
         vec3 probe_pos = vec3(0);
@@ -59,7 +58,7 @@ vec3 integrator_DDGI
                         return vec3(1, 0, 1);
                         break;
                     }
-                }*/
+                } */
 
                 return vec3(0, 1, 1); // probe color here
             }
@@ -71,14 +70,14 @@ vec3 integrator_DDGI
     if (!intersect)
         return col;
 
+    float lambert = clamp(dot(normalize(info.normal),
+                              normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
+                              0.0, 1.0);
     vec3 indirect_lighting = get_diffuse_gi(info, probe_counts, side_length, ray);
 
     Ray light_feeler = Ray(info.pos, normalize(get_light_pos_in_scene(render_settings.scene) - info.pos));
     if (intersect_scene(light_feeler, mint, maxt, temp_info)) {
         if (temp_info.type == 2) { // test if it intersects the light
-            float lambert = clamp(dot(normalize(info.normal),
-                                      normalize(get_light_pos_in_scene(render_settings.scene) - info.pos)),
-                                  0.0, 1.0);
             return 0.5 * info.mat.base_color * lambert + 0.5 * info.mat.base_color * indirect_lighting;
         } else {
             return indirect_lighting * info.mat.base_color; 

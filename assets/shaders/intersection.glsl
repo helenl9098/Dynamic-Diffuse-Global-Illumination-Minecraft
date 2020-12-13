@@ -582,6 +582,246 @@ float fbm(float x, float y) {
     return total;
 }
 
+float sdCone( in vec3 p, in vec2 c, float h )
+{
+  // c is the sin/cos of the angle, h is height
+  // Alternatively pass q instead of (c,h),
+  // which is the point at the base in 2D
+  vec2 q = h*vec2(c.x/c.y,-1.0);
+    
+  vec2 w = vec2( length(p.xz), p.y );
+  vec2 a = w - q*clamp( dot(w,q)/dot(q,q), 0.0, 1.0 );
+  vec2 b = w - q*vec2( clamp( w.x/q.x, 0.0, 1.0 ), 1.0 );
+  float k = sign( q.y );
+  float d = min(dot( a, a ),dot(b, b));
+  float s = max( k*(w.x*q.y-w.y*q.x),k*(w.y-q.y)  );
+  return sqrt(d)*sign(s);
+}
+
+float sdCappedCylinder( vec3 p, float h, float r )
+{
+  vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(h,r);
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+}
+
+float sdCappedCone( vec3 p, float h, float r1, float r2 )
+{
+  vec2 q = vec2( length(p.xz), p.y );
+  vec2 k1 = vec2(r2,h);
+  vec2 k2 = vec2(r2-r1,2.0*h);
+  vec2 ca = vec2(q.x-min(q.x,(q.y<0.0)?r1:r2), abs(q.y)-h);
+  vec2 cb = q - k1 + k2*clamp( dot(k1-q,k2)/dot(k2, k2), 0.0, 1.0 );
+  float s = (cb.x<0.0 && ca.y<0.0) ? -1.0 : 1.0;
+  return s*sqrt( min(dot(ca,ca),dot(cb,cb)) );
+}
+
+float sdDisk(vec3 p, float r, float y) {
+	return length(vec3(p.x, y, p.z))-r; 
+}
+
+float sdRoundBox( vec3 p, vec3 b, float r )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
+int tiny_mushroom(vec3 p) {
+	if (sdRoundBox(p, vec3(1.0, 0.5, 1.0), 0) <= 0) {
+		return 7;
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0) {
+		return 5;
+	}
+	return 0;
+}
+
+int small_mushroom(vec3 p) {
+	if (sdRoundBox(p, vec3(1.0, 0.5, 1.0), 1.0) <= 0) {
+		if (p.y > 0) {
+			return 8;
+		}
+		if (p.y == 0) {
+			return 7;
+		}
+		if (p.y < 0) {
+			return 6;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0) {
+		return 5;
+	}
+	return 0;
+}
+
+int medium_mushroom(vec3 p) {
+	/*
+	if (sdDisk(p, 3, 0) < 0 && p.y == 0) {
+		return true;
+	}
+	return false; */
+	if (sdRoundBox(p, vec3(2, 0.5, 2), 1.0) <= 0) {
+		if (p.y > 0) {
+			return 6;
+		}
+		if (p.y == 0) {
+			return 7;
+		}
+		if (p.y < 0) {
+			return 8;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -7) {
+		return 5;
+	}
+	if (p.x == 1 && p.z == 0 && p.y < -5 && p.y > -12) {
+		return 5;
+	}
+	if (p.x == 2 && p.z == 0 && p.y < -10) {
+		return 5;
+	}
+	return 0;
+}
+
+int large_mushroom(vec3 p, int dir) {
+	if (sdRoundBox(p, vec3(3, 0.5, 3), 1.5) <= 0) {
+		if (p.y > 0) {
+			return 6;
+		}
+		if (p.y == 0) {
+			return 8;
+		}
+		if (p.y < 0) {
+			return 7;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -9) {
+		return 5;
+	}
+	if (p.x == 0 && p.z == dir && p.y < -7 && p.y > -18) {
+		return 5;
+	}
+	if (p.x == 0 && p.z == 2 * dir && p.y < -16) {
+		return 5;
+	}
+	return 0;
+}
+
+
+int opRepLim( in vec3 p, in float c, in vec3 l, int type )
+{
+    vec3 q = p-c*clamp(round(p/c),-l,l);
+    if (type == 0) {
+    	return medium_mushroom(q);
+    }
+  	return 0;
+}
+
+int all_mushrooms(vec3 coords) {
+	if (coords.x < 0 && coords.z > 0) {
+		if (coords.x < -16) {
+			if (coords.z > 20) {
+				int check = tiny_mushroom(coords - vec3(-19, -12, 22));
+		  		if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			if (coords.z < 4) {
+				int check = tiny_mushroom(coords - vec3(-18, -12, 2));
+		  		if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			int check = large_mushroom(coords - vec3(-22, 3, 8), -1);
+		  	if (check != 0) {
+				return check;
+			}
+			check = medium_mushroom(coords - vec3(-27, -4, 16));
+			if (check != 0) {
+				return check;
+			}
+			return 0;
+		}
+		else {
+			if (coords.z > 10 && coords.x > -6) {
+				int check = tiny_mushroom(coords - vec3(-4, -14, 12));
+		  		if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			if (coords.z < 14) {
+				int check = medium_mushroom(coords - vec3(-4, -1, 6));
+				if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			int check = small_mushroom(coords - vec3(-10, -8, 18));
+			if (check != 0) {
+				return check;
+			}
+			return 0;
+		}
+	}
+	if (coords.x < 0 && coords.z < 0) {
+		if (coords.x < -16) {
+			if (coords.z > -10) {
+				int check = small_mushroom(coords - vec3(-25, -7, -4));
+				if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			int check = medium_mushroom(coords - vec3(-20, -3, -20));
+			if (check != 0) {
+				return check;
+			}
+			return 0;
+		} else {
+			if (coords.x < -12 && coords.z > -12) {
+				int check = tiny_mushroom(coords - vec3(-14, -15, -10));
+		  		if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			if (coords.z > -10 && coords.x > -4) {
+				int check = tiny_mushroom(coords - vec3(-2, -12, -2));
+		  		if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			if (coords.z < -10) {
+				int check = small_mushroom(coords - vec3(-5, -9, -14));
+				if (check != 0) {
+					return check;
+				}
+				return 0;
+			}
+			int check = large_mushroom(coords - vec3(-8, 8, -6), 1);
+		  	if (check != 0) {
+				return check;
+			}
+			return 0;
+		}
+	}
+	if (coords.x > 0 && coords.z < 0) { 
+		int check = medium_mushroom(coords - vec3(10, -6, -10));
+		if (check != 0) {
+			return check;
+		}
+		return 0;
+
+	}
+	if (coords.x > 0 && coords.z > 0) { 
+
+	}
+
+	return 0;
+}
 
 int getBlockAt(vec3 coords, int scene) {
 
@@ -597,13 +837,25 @@ int getBlockAt(vec3 coords, int scene) {
 	// TO DO: STUB FOR Now
 
 	if (scene == 0) {// THIS IS THE CAVE
+
+		//irradiance field check
+		/*
+		ivec3 probe_count = ivec3(floor(irradiance_field.probe_count / 2.0));
+		vec3 distance = probe_count * irradiance_field.side_length; 
+		for (int i = 0; i < 3; i++) {
+			if (coords[i] < -1.0 * distance[i] || coords[i] > distance[i]) {
+				return 0;
+			}
+		} */
+
 		if (coords.y > 17.0) {
 			return 0;
 		}
+
 		if (coords.y < -15) {
-			float r = fbm(coords.x * 0.1, coords.z * 0.1);
-			int d = int(floor(r * 4.0));
-			if (-19 + d >= coords.y) {
+			float r = fbm(coords.x * 0.05, coords.z * 0.05);
+			int d = int(floor(r * 5.0));
+			if (-20 + d >= coords.y) {
 				return 1;
 			}
 		}
@@ -611,15 +863,33 @@ int getBlockAt(vec3 coords, int scene) {
 			if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
 				if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
 					if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
-						if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
+						//if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
 							if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
 									return 1;
 							}
-						}
+						//}
 					}
 				}
 			}
 		}
+
+		int all_mushroom = all_mushrooms(coords);
+		if (all_mushroom != 0) {
+			return all_mushroom;
+		}
+
+		/*
+		vec3 offset = vec3(4, -6, 4);
+		if (sdCappedCone(coords - offset, 3, 4, 2) < 0.0) {
+				return 3;
+		}
+		if (coords.x - offset.x == 0 &&
+			coords.z - offset.z == 0 &&
+			coords.y - offset.y < 0) {
+			return 5;
+		} */
+
+		return 0;
 	}
 
 	else if (scene == 1) { // CORNELL BOX SCENE
@@ -741,8 +1011,20 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
 		r = 0.3;
-		if(point.x < 0) 
-			return vec4(0.1, r, r, 1);
+		if(point.x < 0 && point.z > 0) {
+			if (point.x < -16) {
+				return vec4(0.8, 0.4, 0.2, 1);
+			} 
+			return vec4(0.1, r, 0.2, 1);
+		}
+		if (point.x < 0 && point.z < 0) { 
+			if (point.x < -16) {
+				return vec4(0.4, 0.8, 0.2, 1);
+			} 
+			return vec4(0.99, r, r, 1);
+		}
+		if (point.x > 0 && point.z < 0) 
+			return vec4(0.1, r, 0.5, 1);
 		return vec4(0.99, r, r, 1);
 	}
 	else if (block_type == 2) {
@@ -759,6 +1041,18 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		//return vec4(uvs, 1, 1);
 		return vec4(.95, .95, .95, 1);
 	}
+	else if (block_type == 6) {
+		// blue purple
+		return vec4(0.529, 0.454, 0.686, 1);
+	}
+	else if (block_type == 7) {
+		// pink
+		return vec4(0.686, 0.454, 0.603, 1);
+	}
+	else if (block_type == 8) {
+		// whiteish blue
+		return vec4(0.709, 0.705, 0.935, 1);
+	}
 }
 
 // marches along ray and checks for blocks at locations
@@ -770,7 +1064,7 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
 
 	vec3 t2;
 	float curr_t = 0.0;
-	for (int i = 0; i < 200; i++) {
+	for (int i = 0; i < 150; i++) {
 	    // calculate distance to voxel boundary
         t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
         // go to next voxel

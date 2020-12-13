@@ -84,12 +84,12 @@ public:
 	// S_CHANGE
     struct IrradianceField
     {
-        alignas(16) glm::ivec3 probe_count = glm::ivec3(5, 5, 5); // number of probes in x, y, z directions
-        int side_length = 6;                      // side length of the cubes that encase the probe
+        alignas(16) glm::ivec3 probe_count = glm::ivec3(9, 7, 9); // number of probes in x, y, z directions
+        int side_length = 11.0;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
-        int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
-
+        int sqrt_rays_per_probe = 16;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
+        alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 0);
+        bool visualize = true;
     };
 
     IrradianceField ir;
@@ -219,6 +219,8 @@ private:
     void create_framebuffers();
     VK::Image create_probe_texture_albedo();
     void recreate_probe_textures();
+    void createTextureImage(VkPhysicalDevice physicalDevice, VkImage textureImage,
+                            VkDeviceMemory textureImageMemory);
 
     RenderingResources create_rendering_resources();
     void add_per_frame_data(int index);
