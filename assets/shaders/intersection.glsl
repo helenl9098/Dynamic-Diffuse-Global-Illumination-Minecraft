@@ -466,7 +466,6 @@ float opRep(in vec3 p, in vec3 c)
 float opRepLim(in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
     vec3 probeOrigin = c * clamp(round(p / c), -l, l);
-    // probeOrigin += field_origin;
 
     probePos = probeOrigin;
 
@@ -569,234 +568,459 @@ float fbm(float x, float y)
     return total;
 }
 
-int getBlockAt(vec3 coords, int scene)
+float sdCone( in vec3 p, in vec2 c, float h )
 {
-    /* BLOCK TYPE KEY:
-    0: EMPTY
-    1: NOISE
-    2: RED
-    3. GREEN
-    4. BLUE
-    5. WHITE
-    */
-
-    // TO DO: STUB FOR Now
-
-    if (scene == 0)
-    {  // THIS IS THE CAVE
-        if (coords.y > 17.0)
-        {
-            return 0;
-        }
-        if (coords.y < -15)
-        {
-            float r = fbm(coords.x * 0.1, coords.z * 0.1);
-            int d = int(floor(r * 4.0));
-            if (-19 + d >= coords.y)
-            {
-                return 1;
-            }
-        }
-        if (sdSphere(coords, 20.0) > 0.0)
-        {
-            if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0)
-            {
-                if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0)
-                {
-                    if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0)
-                    {
-                        if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0)
-                        {
-                            if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0)
-                            {
-                                return 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    else if (scene == 1)
-    {  // CORNELL BOX SCENE
-        // x walls (left )
-        if (coords.x == -10)
-        {
-            if (abs(coords.y) < 10 && abs(coords.z - 15) < 10)
-            {
-                return 2;
-            }
-        }
-        // x walls ( right)
-        if (coords.x == 10)
-        {
-            if (abs(coords.y) < 10 && abs(coords.z - 15) < 10)
-            {
-                return 3;
-            }
-        }
-        // y walls (ceiling floor)
-        if (abs(coords.y) == 10)
-        {
-            if (abs(coords.x) < 10 && abs(coords.z - 15) < 10)
-            {
-                return 5;
-            }
-        }
-        // z wall (back)
-        if (coords.z == 25)
-        {
-            if (abs(coords.x) < 10 && abs(coords.y) < 10)
-            {
-                return 5;
-            }
-        }
-
-        if (abs(coords.x + 3) < 3 && abs(coords.y + 7) < 3 && abs(coords.z - 13) < 3)
-        {
-            return 5;
-        }
-
-        if (abs(coords.x - 4) < 3 && abs(coords.y + 4) < 6 && abs(coords.z - 16) < 3)
-        {
-            return 5;
-        }
-    }
-
-    else if (scene == 2)
-    {  // HOUSE SCENE
-        if (coords.y == -5)
-        {
-            return 1;
-        }
-        if (abs(coords.x) == 25)
-        {
-            if (abs(coords.y) < 5 && abs(coords.z) < 15)
-            {
-                return 2;
-            }
-        }
-        if (coords.y == 5)
-        {
-            if (abs(coords.x) < 25 && abs(coords.z) < 15)
-            {
-                return 5;
-            }
-        }
-        if (coords.z == -15)
-        {
-            if (abs(coords.x) < 25 && abs(coords.y) < 5)
-            {
-                return 3;
-            }
-        }
-        if (coords.z == 15)
-        {
-            if (abs(coords.x - 10) < 2 && abs(coords.y + 1) < 4)
-            {
-                return 0;
-            }
-            if (abs(coords.x) < 25 && abs(coords.y) < 5)
-            {
-                return 3;
-            }
-        }
-    }
-    else
-    {
-        return 0;
-    }
-
-    return 0;
+  // c is the sin/cos of the angle, h is height
+  // Alternatively pass q instead of (c,h),
+  // which is the point at the base in 2D
+  vec2 q = h*vec2(c.x/c.y,-1.0);
+    
+  vec2 w = vec2( length(p.xz), p.y );
+  vec2 a = w - q*clamp( dot(w,q)/dot(q,q), 0.0, 1.0 );
+  vec2 b = w - q*vec2( clamp( w.x/q.x, 0.0, 1.0 ), 1.0 );
+  float k = sign( q.y );
+  float d = min(dot( a, a ),dot(b, b));
+  float s = max( k*(w.x*q.y-w.y*q.x),k*(w.y-q.y)  );
+  return sqrt(d)*sign(s);
 }
 
-vec2 getUVs(vec3 point, vec3 normal)
+float sdCappedCylinder( vec3 p, float h, float r )
 {
-    vec2 result_uv = vec2(0, 0);
-
-    // unless the normal is straight up and down, the u in uvs is always x or z
-    if (normal[1] == 0)
-    {
-        if (normal[0] == 0)
-        {
-            // this means the face is pointing in the z direction (forwards and back)
-            if (sign(normal[2]) > 0)
-            {
-                result_uv[0] = ceil(point[0]) - point[0];
-                result_uv[1] = point[1] - floor(point[1]);
-            }
-            else
-            {
-                result_uv[0] = point[0] - floor(point[0]);
-                result_uv[1] = point[1] - floor(point[1]);
-            }
-        }
-        else
-        {  // this means the face is pointing in the x direction
-            if (sign(normal[0]) < 1)
-            {
-                result_uv[0] = ceil(point[2]) - point[2];
-                result_uv[1] = point[1] - floor(point[1]);
-            }
-            else
-            {
-                result_uv[0] = point[2] - floor(point[2]);
-                result_uv[1] = point[1] - floor(point[1]);
-            }
-        }
-    }
-    else
-    {  // else, the us are X and the vs are Z
-        if (sign(normal[1]) < 0)
-        {
-            result_uv[0] = point[0] - floor(point[0]);
-            result_uv[1] = ceil(point[2]) - point[2];
-        }
-        else
-        {
-            result_uv[0] = point[0] - floor(point[0]);
-            result_uv[1] = point[2] - floor(point[2]);
-        }
-    }
-    return result_uv;
+  vec2 d = abs(vec2(length(p.xz),p.y)) - vec2(h,r);
+  return min(max(d.x,d.y),0.0) + length(max(d,0.0));
 }
 
-vec4 getColorAt(vec3 point, int block_type, vec3 normal)
+float sdCappedCone( vec3 p, float h, float r1, float r2 )
 {
-    /* BLOCK TYPE KEY:
-    0: EMPTY
-    1: NOISE
-    2: RED
-    3. GREEN
-    4. BLUE
-    5. WHITE
-    */
-    if (block_type == 1)
-    {
-        float r = (random1(ceil(point)) / 4) + 0.1;  // range of 0.3 to 0.8
-        r = 0.3;
-        if (point.x < 0) return vec4(0.1, r, r, 1);
-        return vec4(0.99, r, r, 1);
+  vec2 q = vec2( length(p.xz), p.y );
+  vec2 k1 = vec2(r2,h);
+  vec2 k2 = vec2(r2-r1,2.0*h);
+  vec2 ca = vec2(q.x-min(q.x,(q.y<0.0)?r1:r2), abs(q.y)-h);
+  vec2 cb = q - k1 + k2*clamp( dot(k1-q,k2)/dot(k2, k2), 0.0, 1.0 );
+  float s = (cb.x<0.0 && ca.y<0.0) ? -1.0 : 1.0;
+  return s*sqrt( min(dot(ca,ca),dot(cb,cb)) );
+}
+
+float sdDisk(vec3 p, float r, float y) {
+	return length(vec3(p.x, y, p.z))-r; 
+}
+
+float sdRoundBox( vec3 p, vec3 b, float r )
+{
+  vec3 q = abs(p) - b;
+  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r;
+}
+
+int tiny_mushroom(vec3 p) {
+	if (sdRoundBox(p, vec3(1.0, 0.5, 1.0), 0) <= 0) {
+		return 7;
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0) {
+		return 5;
+	}
+	return 0;
+}
+
+int small_mushroom(vec3 p) {
+	if (sdRoundBox(p, vec3(1.0, 0.5, 1.0), 1.0) <= 0) {
+		if (p.y > 0) {
+			return 8;
+		}
+		if (p.y == 0) {
+			return 7;
+		}
+		if (p.y < 0) {
+			return 6;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0) {
+		return 5;
+	}
+	return 0;
+}
+
+int medium_mushroom(vec3 p) {
+	/*
+	if (sdDisk(p, 3, 0) < 0 && p.y == 0) {
+		return true;
+	}
+	return false; */
+	if (sdRoundBox(p, vec3(2, 0.5, 2), 1.0) <= 0) {
+		if (p.y > 0) {
+			return 6;
+		}
+		if (p.y == 0) {
+			return 7;
+		}
+		if (p.y < 0) {
+			return 8;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -7) {
+		return 5;
+	}
+	if (p.x == 1 && p.z == 0 && p.y < -5 && p.y > -12) {
+		return 5;
+	}
+	if (p.x == 2 && p.z == 0 && p.y < -10) {
+		return 5;
+	}
+	return 0;
+}
+
+int large_mushroom(vec3 p, int dir) {
+	if (sdRoundBox(p, vec3(3, 0.5, 3), 1.5) <= 0) {
+		if (p.y > 0) {
+			return 6;
+		}
+		if (p.y == 0) {
+			return 8;
+		}
+		if (p.y < 0) {
+			return 7;
+		}
+	}
+	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -9) {
+		return 5;
+	}
+	if (p.x == 0 && p.z == dir && p.y < -7 && p.y > -18) {
+		return 5;
+	}
+	if (p.x == 0 && p.z == 2 * dir && p.y < -16) {
+		return 5;
+	}
+	return 0;
+}
+
+int opRepLim( in vec3 p, in float c, in vec3 l, int type )
+{
+    vec3 q = p-c*clamp(round(p/c),-l,l);
+    if (type == 0) {
+    	return medium_mushroom(q);
     }
-    else if (block_type == 2)
-    {
-        return vec4(.95, 0, 0, 1);
-    }
-    else if (block_type == 3)
-    {
-        return vec4(0, .95, 0, 1);
-    }
-    else if (block_type == 4)
-    {
-        return vec4(0, 0, .95, 1);
-    }
-    else if (block_type == 5)
-    {
-        // vec2 uvs = getUVs(point, normal);
-        // return vec4(uvs, 1, 1);
-        return vec4(.95, .95, .95, 1);
-    }
+  	return 0;
+}
+
+int all_mushrooms(vec3 coords) {
+	if (coords.x < 0 && coords.z > 0) {
+		if (coords.x < -16) {
+			if (coords.z > 20) {
+				return tiny_mushroom(coords - vec3(-19, -12, 22));
+			}
+			if (coords.z < 4) {
+				return tiny_mushroom(coords - vec3(-18, -12, 2));
+			}
+			int check = large_mushroom(coords - vec3(-22, 3, 8), -1);
+		  	if (check != 0) {
+				return check;
+			}
+			check = medium_mushroom(coords - vec3(-27, -4, 16));
+			if (check != 0) {
+				return check;
+			}
+			return 0;
+		}
+		else {
+			if (coords.z > 10 && coords.x > -6) {
+				return tiny_mushroom(coords - vec3(-4, -14, 12));
+			}
+			if (coords.z < 14) {
+				return medium_mushroom(coords - vec3(-4, -1, 6));
+			}
+			return small_mushroom(coords - vec3(-10, -8, 18));
+		}
+	}
+	if (coords.x < 0 && coords.z < 0) {
+		if (coords.x < -16) {
+			if (coords.x < -28) {
+				if (coords.z < -16) {
+					return tiny_mushroom(coords - vec3(-32, -14, -20));
+				}
+				return tiny_mushroom(coords - vec3(-30, -12, -12));
+			}
+			if (coords.z > -10) {
+				return small_mushroom(coords - vec3(-25, -7, -4));
+			}
+			return medium_mushroom(coords - vec3(-20, -3, -20));
+		} else {
+			if (coords.x < -12 && coords.z > -12) {
+				return tiny_mushroom(coords - vec3(-14, -15, -10));
+			}
+			if (coords.z > -10 && coords.x > -4) {
+				return tiny_mushroom(coords - vec3(-2, -12, -2));
+			}
+			if (coords.z < -10) {
+				return small_mushroom(coords - vec3(-5, -9, -14));
+			}
+			return large_mushroom(coords - vec3(-8, 8, -6), 1);
+		}
+	}
+	if (coords.x > 0 && coords.z < 0) { 
+		if (coords.z > -5) {
+			return tiny_mushroom(coords - vec3(6, -14, -3));
+		}
+		if (coords.z < -14) {
+			if (coords.x > 18) {
+				return tiny_mushroom(coords - vec3(20, -7, -16));
+			}
+			return large_mushroom(coords - vec3(14, 10, -20), -1);
+		}
+		return medium_mushroom(coords - vec3(6, -6, -10));
+	}
+	return 0;
+}
+
+int getBlockAt(vec3 coords, int scene) {
+
+	/* BLOCK TYPE KEY: 
+	0: EMPTY
+	1: NOISE
+	2: RED
+	3. GREEN
+	4. BLUE
+	5. WHITE
+	6. MUSHROOM BLOCK 1
+	7. MUSHROOM BLOCK 2
+	8. MUSHROOM BLOCK 3
+	9. MUSHROOM STEM
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
+	11. CAVE GROUND (RED)
+	12. CAVE GROUND MOSS (GREEN)
+	13. CAVE GROUND MOLD (BLUE)
+	*/
+
+	// TO DO: STUB FOR Now
+
+	if (scene == 0) {// THIS IS THE CAVE
+
+		if (coords.y > 17.0) {
+			return 0;
+		}
+
+		if (coords.y < -15) {
+			float r = fbm(coords.x * 0.058, coords.z * 0.058);
+			int d = int(floor(r * 5.0)); 
+			if (-21 + d >= coords.y) {
+				if (coords.y == -18) {
+					return 13;
+				}
+				return 11;
+			}
+		}
+
+		if (coords.y < -18) {
+			float r = fbm(coords.x * 0.3, coords.z * 0.3);
+			int d = int(floor(r * 2.0));
+			if (d == 0) {
+				return 12;
+			}
+		}
+
+		if (sdSphere(coords, 20.0) > 0.0) {
+			if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
+				if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
+					if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
+							if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
+									return 10;
+							}
+					}
+				}
+			}
+		}
+
+		int all_mushroom = all_mushrooms(coords);
+		if (all_mushroom != 0) {
+			return all_mushroom;
+		}
+
+		return 0;
+	}
+
+	else if (scene == 1) { // CORNELL BOX SCENE
+		// x walls (left )
+		if (coords.x == -10) {
+			if (abs(coords.y) < 10 && abs(coords.z - 15) < 10) {
+				return 2;
+			} 
+		}
+	     // x walls ( right)
+		if (coords.x == 10) {
+			if (abs(coords.y) < 10 && abs(coords.z - 15) < 10) {
+				return 3;
+			} 
+		}
+		// y walls (ceiling floor)
+		if (abs(coords.y) == 10) {
+			if (abs(coords.x) < 10 && abs(coords.z - 15) < 10) {
+				return 5;
+			} 
+		}
+		// z wall (back)
+		if (coords.z == 25) {
+			if (abs(coords.x) < 10 && abs(coords.y) < 10) {
+				return 5;
+			} 
+		}
+
+		if (abs(coords.x + 3) < 3 && abs(coords.y + 7) < 3 && abs(coords.z -13) < 3) {
+				return 5;
+		}
+
+		if (abs(coords.x - 4) < 3 && abs(coords.y + 4) < 6 && abs(coords.z -16) < 3) {
+				return 5;
+		} 
+	}
+
+	else if (scene == 2) { // HOUSE SCENE
+		if (coords.y == -5) {
+			return 1;
+		}
+		if (abs(coords.x) == 25) {
+			if (abs(coords.y) < 5 && abs(coords.z) < 15) {
+				return 2;
+			}
+		}
+		if (coords.y == 5) {
+			if (abs(coords.x) < 25 && abs(coords.z) < 15) {
+				return 5;
+			} 
+		}
+		if (coords.z == -15) {
+			if (abs(coords.x) < 25 && abs(coords.y) < 5) {
+				return 3;
+			} 
+		}
+		if (coords.z == 15) {
+			if (abs(coords.x - 10) < 2 && abs(coords.y + 1) < 4) {
+				return 0;
+			}
+			if (abs(coords.x) < 25 && abs(coords.y) < 5) {
+				return 3;
+			} 
+		}
+	}
+	else {
+		return 0;
+	}
+	
+	return 0;
+}
+
+vec2 getUVs(vec3 point, vec3 normal) {
+	vec2 result_uv = vec2(0, 0);
+
+	// unless the normal is straight up and down, the u in uvs is always x or z
+	if (normal[1] == 0) {
+		if (normal[0] == 0) {
+			// this means the face is pointing in the z direction (forwards and back)
+			if (sign(normal[2]) > 0) {
+				result_uv[0] = ceil(point[0]) - point[0];
+				result_uv[1] = point[1] - floor(point[1]);
+			} else { 
+				result_uv[0] = point[0] - floor(point[0]);
+				result_uv[1] = point[1] - floor(point[1]);
+			}
+		}
+		else { // this means the face is pointing in the x direction
+			if (sign(normal[0]) < 1) {
+				result_uv[0] = ceil(point[2]) - point[2];
+				result_uv[1] = point[1] - floor(point[1]);
+			} else {
+				result_uv[0] = point[2] - floor(point[2]);
+				result_uv[1] = point[1] - floor(point[1]);
+			}
+		}
+	}
+	else { // else, the us are X and the vs are Z
+		if (sign(normal[1]) < 0) {
+			result_uv[0] = point[0] - floor(point[0]);
+			result_uv[1] = ceil(point[2]) - point[2];
+		} else {
+			result_uv[0] = point[0] - floor(point[0]);
+			result_uv[1] = point[2] - floor(point[2]);
+		}
+	}
+	return result_uv;
+}
+
+vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
+	/* BLOCK TYPE KEY: 
+	0: EMPTY
+	1: NOISE
+	2: RED
+	3. GREEN
+	4. BLUE
+	5. WHITE
+	6. MUSHROOM BLOCK 1
+	7. MUSHROOM BLOCK 2
+	8. MUSHROOM BLOCK 3
+	9. MUSHROOM STEM
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
+	11. CAVE GROUND (RED)
+	12. CAVE GROUND MOSS (GREEN)
+	13. CAVE GROUND MOLD (BLUE)
+	*/
+ 	if (block_type == 1) {
+		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
+		r = 0.3;
+		if(point.x < 0 && point.z > 0) {
+			if (point.x < -16) {
+				return vec4(0.8, 0.4, 0.2, 1);
+			} 
+			return vec4(0.1, r, 0.2, 1);
+		}
+		if (point.x < 0 && point.z < 0) { 
+			if (point.x < -16) {
+				return vec4(0.4, 0.8, 0.2, 1);
+			} 
+			return vec4(0.99, r, r, 1);
+		}
+		if (point.x > 0 && point.z < 0) 
+			return vec4(0.1, r, 0.5, 1);
+		return vec4(0.99, r, r, 1);
+	}
+	else if (block_type == 2) {
+		return vec4(.95, 0, 0, 1);
+	}
+	else if (block_type == 3) {
+		return vec4(0, .95, 0, 1);
+	}
+	else if (block_type == 4) {
+		return vec4(0, 0, .95, 1);
+	}
+	else if (block_type == 5) {
+		//vec2 uvs = getUVs(point, normal);
+		//return vec4(uvs, 1, 1);
+		return vec4(.95, .95, .95, 1);
+	}
+	else if (block_type == 6) {
+		// blue purple
+		return vec4(0.529, 0.454, 0.686, 1);
+		//return vec4(getUVs(point, normal), 1, 1);
+	}
+	else if (block_type == 7) {
+		// pink
+		return vec4(0.686, 0.454, 0.603, 1);
+	}
+	else if (block_type == 8) {
+		// whiteish blue
+		return vec4(0.709, 0.705, 0.935, 1);
+	}
+	else if (block_type == 9) {
+		return vec4(1, 1, 1, 1);
+	}
+	else if (block_type == 10) {
+		return vec4(1, 0.5, 0, 1);
+	}
+	else if (block_type == 11) {
+		return vec4(1, 0, 0, 1);
+	}
+	else if (block_type == 12) {
+		return vec4(0, 1, 0, 1);
+	}
+	else if (block_type == 13) {
+		return vec4(0, 0, 1, 1);
+	}
 }
 
 // marches along ray and checks for blocks at locations
