@@ -1018,8 +1018,8 @@ bool intersect_scene
     Ray temp_ray;
     for (int i = 0; i < num_lights[scene]; i++)
     {
-        temp_ray.origin = (ray.origin - get_light(scene, i).pos) / 0.5;
-        temp_ray.direction = ray.direction / 0.5;
+        temp_ray.origin = (ray.origin - get_light(scene, i).pos) / 0.1;
+        temp_ray.direction = ray.direction / 0.1;
 
         intersect_sphere(temp_ray, mint, closest_t, temp_isect);
         if (temp_isect.t < closest_t)

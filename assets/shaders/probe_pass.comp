@@ -240,14 +240,19 @@ vec3 get_direct_lighting(Isect info) {
 void update_lights() {
     // minecraft cave scene light animations
     for (int i = 0; i < num_lights[0]; i++) {
-        lights_0[i].pos -= vec3(0.00005f * render_settings.time);
+        float t = 0.005f * render_settings.time;
+        float x = lights_0[i].pos.x + (i + 1) * sin(t);
+        float y = lights_0[i].pos.y + (i / 2) * 4 * sin(t);
+        float z = lights_0[i].pos.z + (i + 1) * cos(t);
+        lights_0[i].pos = vec3(x, y, z);
+		// lights_0[i].pos -= vec3(0.00005f * render_settings.time);
     }
 
     // cornell box light animations
     for (int i = 0; i < num_lights[1]; i++) {
         float t = 0.005f * render_settings.time;
         float x = lights_1[i].pos.x + (i + 1) * sin(t);
-        float y = lights_1[i].pos.y;
+        float y = lights_1[i].pos.y + (i / 2) * 4 * sin(t);
         float z = lights_1[i].pos.z + (i + 1) * cos(t);
         lights_1[i].pos = vec3(x, y, z);
         // lights_1[i].pos -= vec3(0.005f * render_settings.time);

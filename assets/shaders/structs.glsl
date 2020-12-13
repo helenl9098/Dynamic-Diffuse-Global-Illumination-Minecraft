@@ -62,9 +62,17 @@ struct Light
 //const int num_lights_1 = 2;
 //const int num_lights_2 = 2;
 
-const int num_lights[3] = {1, 3, 2};
+const int num_lights[3] = {8, 3, 2};
 
-Light lights_0[num_lights[0]] = {{20.f, vec3(1.f), vec3(4, 17.5, 8.5)}};
+Light lights_0[num_lights[0]] = {{10.f, vec3(1.f), vec3(4, 17.5, 8.5)},
+                                 {10.f, vec3(1.f, 0.1f, 0.1f), vec3(-19, 14, 13)},
+                                 {10.f, vec3(0.1f, 0.1f, 1.f), vec3(-17, 8, 9)},
+                                 {10.f, vec3(0.1f, 1.f, 0.1f), vec3(-3, 14, 9)},
+                                 {10.f, vec3(0.1f, 1.f, 0.1f), vec3(-8, 11, 8.5)},
+                                 {10.f, vec3(0.1f, 1.f, 0.1f), vec3(4, 11, 8.5)},
+                                 {10.f, vec3(0.1f, 1.f, 0.1f), vec3(0, 11, 8.5)},
+                                 {10.f, vec3(0.1f, 1.f, 0.1f), vec3(-11, 11, 8.5)}
+};
 
 //Light lights_1[num_lights[1]] = {{1.f, vec3(1.f), vec3(0, 8, 13)},
 //                                 {1.f, vec3(1.f), vec3(0, 8, 9)}};

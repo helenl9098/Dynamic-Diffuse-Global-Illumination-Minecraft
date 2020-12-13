@@ -74,7 +74,7 @@ public:
     {
         alignas(4) int screen_width = 1600;
         alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 5;
+        alignas(4) int max_bounces = 3;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
@@ -88,7 +88,7 @@ public:
         int side_length = 6;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
         // int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        int sqrt_rays_per_probe = 22;
+        int sqrt_rays_per_probe = 20;
         alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
 
     };
