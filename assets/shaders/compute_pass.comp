@@ -193,8 +193,7 @@ void main()
     ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
 
     vec3 probe = imageLoad(probe_image_albedo, coords).xyz;
-    vec3 texture = imageLoad(block_texture, coords).xyz;
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
-    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(texture, 1));
+    imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 1));
 }
