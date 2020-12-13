@@ -82,11 +82,11 @@ public:
 	
     struct IrradianceField
     {
-        alignas(16) glm::ivec3 probe_count = glm::ivec3(5, 5, 5); // number of probes in x, y, z directions
-        int side_length = 6;                      // side length of the cubes that encase the probe
+        alignas(16) glm::ivec3 probe_count = glm::ivec3(9, 7, 9); // number of probes in x, y, z directions
+        int side_length = 11;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
-        int sqrt_rays_per_probe = 40;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
+        int sqrt_rays_per_probe = 4;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
+        alignas(16) glm::vec3 field_origin = glm::vec3(1.4, 0, 1.0);
         bool visualize = true;
     };
 
