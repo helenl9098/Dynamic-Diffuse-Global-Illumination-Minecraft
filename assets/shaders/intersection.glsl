@@ -1059,17 +1059,17 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(0.95, 0.95, 0.95, 1);
 	}
 	else if (block_type == 6) {
-		vec3 orange = vec3(1.0, 0.5, 0.0);
+		vec3 orange = vec3(1, 0.2, 0);
 		float w = worleyNoise(point.xz);
 		if(w < 0.35) {
-			return vec4(1 - (w * (vec3(1) - orange)), 1);
-		}
+			return vec4(1, 0, 0.223, 1);
+		} 
 		return vec4(orange, 1);
 	}
 	else if (block_type == 7) {
 		// dark blue cyan spots
-		vec3 dark_orange = vec3(0.6, 0.3, 0.1);
-		vec3 green = vec3(0.3, 0.9, 0.0);
+		vec3 dark_orange = vec3(1, 0, 0.011);
+		vec3 green = vec3(0.8, 1, 0);
 		float w = worleyNoise(point.xz + vec2(5));
 		if(w < 0.25) {
 			return vec4(green - (w * (vec3(0.5) - green)), 1);
@@ -1077,9 +1077,10 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(dark_orange, 1);
 	}
 	else if (block_type == 8) {
+        //return vec4(1, 0.5, 0, 1);
 		// greenish-blue cyan spots
-		vec3 light_orange = vec3(0.8, 0.8, 0.3);
-		vec3 dark_purple = vec3(0.3, 0.1, 0.6);
+		vec3 light_orange = vec3(1, 0.313, 0);
+		vec3 dark_purple = vec3(1, 0, 0.223);
 
 		//mushroom dots 
 		vec3 fragColor = vec3(0.070, 0.137, 0.670);
@@ -1094,6 +1095,7 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
     	return vec4(color, 1);
 	}
 	else if (block_type == 9) {
+        //return vec4(1, 0.5, 0, 1);
 		vec2 uvs = getUVs(point, normal);
 		float val = fbm(uvs.x * 5, point.z);
 		val += 0.5 * fbm1D(point.x);
@@ -1128,7 +1130,20 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		}
 		vec2 uv = getUVs(point, normal);
 		float r = fbm(0.05, (uv.y + point.y) * 0.3);
-		vec3 wallColor = vec3(0.294, 0.007, 0.152);
+		vec3 wallColor = vec3(0, 0.666, 1);
+        if (point.x < -1) {
+            wallColor = vec3(0.294, 0.007, 0.152);
+        }
+        else if (point.x < 6 && point.x >= -1) {
+            float gradient = point.x / 7.0; // 1 if blue, 0 if red
+            float r = (random1(ceil(point))); 
+            if (r < gradient) {
+                wallColor = vec3(0, 0.666, 1);
+            } else {
+                wallColor = vec3(0.294, 0.007, 0.152);
+            }
+
+        }
 		vec3 combined = mix(wallColor, vec3(color), r);
 		//return color * r;
 		//return color;
@@ -1145,15 +1160,17 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		vec2 uv = getUVs(point, normal);
 		r = fbm(uv.x * 2.0, uv.y * 2.0); 
 		//if (r < 0.5) {
-			combined = mix(combined, vec3(0.639, 0.176, 0.725), r / 2.0);
+			combined = mix(combined, vec3(0.294, 0.007, 0.152), r / 2.0);
 		//}
 		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
+        //return vec4(0.619, 1, 0.278, 1);
+        
         // cave ground moss green
         vec2 uv = getUVs(point, normal);
-        vec3 base_green = vec3(0.2f, 1.f, 0.1f);
-        vec3 base_purple = vec3(0.2f, 0.1f, 0.3f);
+        vec3 base_green = vec3(0.356, 1, 0.101);
+        vec3 base_purple = vec3(0.619, 1, 0.278);
         // vec2 axis = normalize(uv - vec2(0.5)) * length(floor(point));
         vec2 axis = normalize(uv - vec2(0.5));
         float r = interpNoise2D(axis.x, axis.y);
@@ -1161,13 +1178,15 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
         return vec4(moss_col, 1);
 	}
 	else if (block_type == 13) {
+        //return vec4(0.356, 1, 0.101, 1);
+        
         // cave ground mold blue
         int side_length = 7;
         vec2 uv = getUVs(point, normal);
         ivec2 cell_idx = ivec2(floor(uv * 7));
-        vec3 base_blue = vec3(0.1f, 0.5f, 0.9f);
+        vec3 base_blue = vec3(0.356, 1, 0.101);
         float r = interpNoise2D(float(cell_idx.x), float(cell_idx.y));
-        return vec4(0.2f * r * r, r, 0.3f + r, 1);
+        return vec4(0.803 * r * r, 1, 0.341, 1);
 	}
 }
 
