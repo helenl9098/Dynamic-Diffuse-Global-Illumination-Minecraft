@@ -71,7 +71,7 @@ public:
     {
         alignas(4) int screen_width = 1600;
         alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 10;
+        alignas(4) int max_bounces = 8;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
@@ -109,9 +109,6 @@ private:
     // Random number generators
     std::mt19937 random_generator;
     std::uniform_real_distribution<float> distribution;
-
-    // Random numbers (generated every frame)
-    std::vector<float> random_numbers;
 
     std::vector<ProbeRay> probe_rays;
 
@@ -186,7 +183,6 @@ private:
     {
         VK::Buffer settings_uniform;
         VK::Image output_image;
-        VK::Buffer random_buffer;
         VK::Buffer camera_uniform;
         VK::Buffer probe_buffer;
         VK::CommandBuffer probe_command_buffer;

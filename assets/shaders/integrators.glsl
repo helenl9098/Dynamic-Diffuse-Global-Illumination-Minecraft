@@ -66,7 +66,7 @@ vec3 integrator_DDGI
         }
     }
 
-    vec3 col = vec3(0.90, 0.90, 1.0);
+    vec3 col = vec3(0.80, 0.80, 1.0);
     if (!intersect) return col;
 
     // returns the light color if a light sphere is hit

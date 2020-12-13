@@ -26,8 +26,7 @@ layout(binding = 0) uniform RenderSettings
 render_settings;
 
 layout(binding = 1, rgba8) uniform writeonly image2D result_image;
-layout(binding = 2) buffer Random { float random_source[]; };
-layout(binding = 3) uniform Camera
+layout(binding = 2) uniform Camera
 {
     mat4 matrix;
     vec4 params; /* aspect, hfov, scale, 0 */
@@ -36,10 +35,10 @@ cam;
 ivec2 dim = imageSize(result_image);
 uint iframe = 1;
 
-layout(binding = 4, rgba8) uniform readonly image2D probe_image_albedo;
-layout(binding = 5, rgba8) uniform readonly image2D probe_image_distances;
+layout(binding = 3, rgba8) uniform readonly image2D probe_image_albedo;
+layout(binding = 4, rgba8) uniform readonly image2D probe_image_distances;
 
-layout(binding = 6) uniform IrradianceField
+layout(binding = 5) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
@@ -47,8 +46,6 @@ layout(binding = 6) uniform IrradianceField
     int sqrt_rays_per_probe;
     vec3 field_origin;
 } irradiance_field;
-
-layout(binding = 8, rgba8) uniform readonly image2D block_texture;
 
 #include "util.glsl"
 #include "camera.glsl"

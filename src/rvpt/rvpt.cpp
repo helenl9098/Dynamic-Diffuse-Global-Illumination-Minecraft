@@ -241,8 +241,6 @@ RVPT::RVPT(Window& window)
         source_folder = json["project_source_dir"];
     }
 
-    random_numbers.resize(20480);
-
 }
 
 RVPT::~RVPT() {}
@@ -289,18 +287,9 @@ bool RVPT::update()
 
     render_settings.camera_mode = scene_camera.get_camera_mode();
 
-    if (!(previous_frame_state == RVPT::PreviousFrameState{render_settings, camera_data}))
-    {
-        //render_settings.current_frame = 0;
-        previous_frame_state.settings = render_settings;
-        previous_frame_state.camera_data = camera_data;
-    }
-    else
-    {
-        //render_settings.current_frame++;
-    }
-
-    for (auto& r : random_numbers) r = (distribution(random_generator));
+    //render_settings.current_frame = 0;
+    previous_frame_state.settings = render_settings;
+    previous_frame_state.camera_data = camera_data;
 
     per_frame_data[current_frame_index].raytrace_work_fence.wait();
     per_frame_data[current_frame_index].raytrace_work_fence.reset();
@@ -308,7 +297,6 @@ bool RVPT::update()
     float delta = static_cast<float>(time.since_last_frame());
     render_settings.time += 10;
     per_frame_data[current_frame_index].settings_uniform.copy_to(render_settings);
-    per_frame_data[current_frame_index].random_buffer.copy_to(random_numbers);
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
@@ -733,7 +721,6 @@ void RVPT::recreate_probe_textures() {
             std::vector<VK::DescriptorUseVector> raytracing_descriptors;
             raytracing_descriptors.push_back(std::vector{frame.settings_uniform.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.output_image.descriptor_info()});
-            raytracing_descriptors.push_back(std::vector{frame.random_buffer.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.camera_uniform.descriptor_info()});
 
             raytracing_descriptors.push_back(
@@ -743,8 +730,6 @@ void RVPT::recreate_probe_textures() {
             
             raytracing_descriptors.push_back(
                 std::vector{frame.irradiance_field_uniform.descriptor_info()});
-            raytracing_descriptors.push_back(std::vector{
-                rendering_resources->block_texture.descriptor_info()});  // HELEN: CHANGED THIS
 
             rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(
                 frame.raytracing_descriptor_sets, raytracing_descriptors);
@@ -810,12 +795,10 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     std::vector<VkDescriptorSetLayoutBinding> compute_layout_bindings = {
         {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
         {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
-        {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
+		{5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -971,11 +954,6 @@ void RVPT::add_per_frame_data(int index)
                                   static_cast<VkDeviceSize>(window_ref.get_settings().width *
                                                             window_ref.get_settings().height * 4),
                                   VK::MemoryUsage::gpu);
-    auto random_buffer =
-        VK::Buffer(vk_device, memory_allocator, "random_data_uniform_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                   sizeof(decltype(random_numbers)::value_type) * random_numbers.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
 
     auto temp_camera_data = scene_camera.get_data();
     auto camera_uniform =
@@ -1021,7 +999,6 @@ void RVPT::add_per_frame_data(int index)
     std::vector<VK::DescriptorUseVector> raytracing_descriptors;
     raytracing_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{output_image.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{random_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{camera_uniform.descriptor_info()});
 	
     raytracing_descriptors.push_back(
@@ -1030,8 +1007,6 @@ void RVPT::add_per_frame_data(int index)
         std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
     // S_CHANGED
     raytracing_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
-    raytracing_descriptors.push_back(
-        std::vector{rendering_resources->block_texture.descriptor_info()}); // HELEN: CHANGED THIS
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
@@ -1063,7 +1038,7 @@ void RVPT::add_per_frame_data(int index)
                                                                       debug_descriptors);
 
     per_frame_data.push_back(RVPT::PerFrameData{
-        std::move(settings_uniform), std::move(output_image), std::move(random_buffer),
+        std::move(settings_uniform), std::move(output_image), 
         std::move(camera_uniform), std::move(probe_buffer),
         std::move(probe_command_buffer), std::move(probe_work_fence),
 		std::move(irradiance_field_uniform),
