@@ -60,7 +60,6 @@ public:
     void reload_shaders();
     void set_raytrace_mode(int mode);
 
-    void add_sphere(Sphere sphere);
     void generate_probe_rays();
 
     void get_asset_path(std::string& asset_path);
@@ -114,7 +113,6 @@ private:
     // Random numbers (generated every frame)
     std::vector<float> random_numbers;
 
-    std::vector<Sphere> spheres;
     std::vector<ProbeRay> probe_rays;
 
     struct PreviousFrameState
@@ -190,7 +188,6 @@ private:
         VK::Image output_image;
         VK::Buffer random_buffer;
         VK::Buffer camera_uniform;
-        VK::Buffer sphere_buffer;
         VK::Buffer probe_buffer;
         VK::CommandBuffer probe_command_buffer;
         VK::Fence probe_work_fence;

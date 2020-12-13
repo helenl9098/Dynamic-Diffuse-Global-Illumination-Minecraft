@@ -36,12 +36,10 @@ cam;
 ivec2 dim = imageSize(result_image);
 uint iframe = 1;
 
-layout(std430, binding = 4) buffer Spheres { Sphere spheres[]; };
+layout(binding = 4, rgba8) uniform readonly image2D probe_image_albedo;
+layout(binding = 5, rgba8) uniform readonly image2D probe_image_distances;
 
-layout(binding = 5, rgba8) uniform readonly image2D probe_image_albedo;
-layout(binding = 6, rgba8) uniform readonly image2D probe_image_distances;
-
-layout(binding = 7) uniform IrradianceField
+layout(binding = 6) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
@@ -59,46 +57,6 @@ layout(binding = 8, rgba8) uniform readonly image2D block_texture;
 #include "distance_functions.glsl"
 #include "material.glsl"
 #include "integrators.glsl"
-
-bool colour(inout Ray ray, inout Record record)
-{
-    record.distance = -1;
-    bool intersected = intersect_spheres(ray, record);
-
-    if (intersected)
-    {
-        apply_record(ray, record);
-        return true;
-    }
-    else
-    {
-        record.albedo = vec3(0);
-//        record.emission = mix(vec3(0.9, 0.9, 1), vec3(.6, 0.6, 1), (ray.direction.y - 0.5) * 2);
-        record.emission = vec3(0);
-        record.reflectiveness = 0.0;
-        return false;
-    }
-}
-
-vec3 trace(in Ray ray)
-{
-    vec3 throughput = vec3(1);
-    vec3 final = vec3(0);
-
-    Record record;
-    for (int i = 0; i < render_settings.max_bounces; i++)
-    {
-        if (!colour(ray, record))
-        {
-            final += throughput * record.emission;
-            break;
-        }
-        final += throughput * record.emission;
-        throughput *= record.albedo * record.reflectiveness;
-    }
-
-    return final;
-}
 
 vec3 eval_integrator
 
@@ -227,9 +185,9 @@ void main()
 	Ray ray = get_camera_ray(render_settings.camera_mode, coord.x, coord.y);
 	sampled += eval_integrator(integrator_idx, ray);
 
-    ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
+    //ivec2 coords = get_probe_image_coords(gl_GlobalInvocationID.xy);
 
-    vec3 probe = imageLoad(probe_image_albedo, coords).xyz;
+    //vec3 probe = imageLoad(probe_image_albedo, coords).xyz;
 
     // LOOK: change "sampled" to "probe" for result_image if you want to see the texture.
     imageStore(result_image, ivec2(gl_GlobalInvocationID.xy), vec4(sampled, 1));

@@ -312,7 +312,6 @@ bool RVPT::update()
     per_frame_data[current_frame_index].random_buffer.copy_to(random_numbers);
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 
-    per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
 	
     per_frame_data[current_frame_index].irradiance_field_uniform.copy_to(ir);
@@ -737,7 +736,6 @@ void RVPT::recreate_probe_textures() {
             raytracing_descriptors.push_back(std::vector{frame.output_image.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.random_buffer.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.camera_uniform.descriptor_info()});
-            raytracing_descriptors.push_back(std::vector{frame.sphere_buffer.descriptor_info()});
 
             raytracing_descriptors.push_back(
                 std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
@@ -779,7 +777,6 @@ void RVPT::recreate_probe_textures() {
                     std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
                 probe_descriptors.push_back(
                     std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-                probe_descriptors.push_back(std::vector{frame.sphere_buffer.descriptor_info()});
                 probe_descriptors.push_back(
                     std::vector{frame.irradiance_field_uniform.descriptor_info()});
                 rendering_resources->probe_descriptor_pool.update_descriptor_sets(
@@ -816,11 +813,10 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
         {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{7, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
+		{6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -834,8 +830,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // rays
         {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output albedo
         {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
+        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
     };
 
     // Probe pipeline setup
@@ -989,10 +984,6 @@ void RVPT::add_per_frame_data(int index)
                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                    sizeof(decltype(temp_camera_data)::value_type) * temp_camera_data.size(),
                    VK::MemoryUsage::cpu_to_gpu);
-    auto sphere_buffer =
-        VK::Buffer(vk_device, memory_allocator, "spheres_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Sphere) * spheres.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
 
     // LOOK: the definition of the probe ray buffer as well as command buffer + workfence
     auto probe_buffer =
@@ -1033,7 +1024,6 @@ void RVPT::add_per_frame_data(int index)
     raytracing_descriptors.push_back(std::vector{output_image.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{random_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{camera_uniform.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
 	
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
@@ -1053,7 +1043,6 @@ void RVPT::add_per_frame_data(int index)
     probe_descriptors.push_back(std::vector{probe_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-    probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
                                                                       probe_descriptors);
@@ -1076,7 +1065,7 @@ void RVPT::add_per_frame_data(int index)
 
     per_frame_data.push_back(RVPT::PerFrameData{
         std::move(settings_uniform), std::move(output_image), std::move(random_buffer),
-        std::move(camera_uniform), std::move(sphere_buffer), std::move(probe_buffer),
+        std::move(camera_uniform), std::move(probe_buffer),
         std::move(probe_command_buffer), std::move(probe_work_fence),
 		std::move(irradiance_field_uniform),
         std::move(raytrace_command_buffer), std::move(raytrace_work_fence),
@@ -1195,11 +1184,6 @@ void RVPT::record_compute_command_buffer()
                   per_frame_data[current_frame_index].output_image.height / 16, 1);
 
     command_buffer.end();
-}
-
-void RVPT::add_sphere(Sphere sphere)
-{
-    spheres.emplace_back(sphere);
 }
 
 #define PI 3.1415926
