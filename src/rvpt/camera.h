@@ -42,7 +42,7 @@ public:
 private:
     void recalculate_values();
     int mode = 0;
-    float fov = 90.f, scale = 4.f, aspect{};
+    float fov = 75.f, scale = 4.f, aspect{};
     bool vertical_view_angle_clamp = false;
 
     glm::vec3 translation{};

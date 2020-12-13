@@ -568,6 +568,70 @@ float fbm(float x, float y)
     return total;
 }
 
+float noise(float i) {
+	return fract(sin(vec2(203.311f * float(i), float(i) * sin(0.324f + 140.0f * float(i))))).x;
+}
+
+float interpNoise1D(float x) {
+	float intX = floor(x);	
+	float fractX = fract(x);
+
+	float v1 = noise(intX);
+	float v2 = noise(intX + 1.0f);
+	return mix(v1, v2, fractX);
+}
+
+float fbm1D(float x) {
+	float total = 0.0f;
+	float persistence = 0.5f;
+	int octaves = 8;
+
+	for(int i = 0; i < octaves; i++) {
+		float freq = pow(2.0f, float(i));
+		float amp = pow(persistence, float(i));
+
+		total += interpNoise1D(x * freq) * amp;
+	}
+
+	return total;
+}
+
+#define cell_size 5.0
+
+vec2 generate_point(vec2 cell) {
+    vec2 p = vec2(cell.x, cell.y);
+    p += fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)) * 43758.5453)));
+    return p * cell_size;
+}
+
+float worleyNoise(vec2 pixel) {
+    vec2 cell = floor(pixel / cell_size);
+
+    vec2 point = generate_point(cell);
+
+    float shortest_distance = length(pixel - point);
+
+   // compute shortest distance from cell + neighboring cell points
+
+    for(float i = -1.0f; i <= 1.0f; i += 1.0f) {
+        float ncell_x = cell.x + i;
+        for(float j = -1.0f; j <= 1.0f; j += 1.0f) {
+            float ncell_y = cell.y + j;
+
+            // get the point for that cell
+            vec2 npoint = generate_point(vec2(ncell_x, ncell_y));
+
+            // compare to previous distances
+            float distance = length(pixel - npoint);
+            if(distance < shortest_distance) {
+                shortest_distance = distance;
+            }
+        }
+    }
+
+    return shortest_distance / cell_size;
+}
+
 float sdCone( in vec3 p, in vec2 c, float h )
 {
   // c is the sin/cos of the angle, h is height
@@ -616,7 +680,7 @@ int tiny_mushroom(vec3 p) {
 		return 7;
 	}
 	if (p.x == 0 && p.z == 0 && p.y < 0) {
-		return 5;
+		return 9;
 	}
 	return 0;
 }
@@ -634,7 +698,7 @@ int small_mushroom(vec3 p) {
 		}
 	}
 	if (p.x == 0 && p.z == 0 && p.y < 0) {
-		return 5;
+		return 9;
 	}
 	return 0;
 }
@@ -652,13 +716,13 @@ int medium_mushroom(vec3 p) {
 		}
 	}
 	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -7) {
-		return 5;
+		return 9;
 	}
 	if (p.x == 1 && p.z == 0 && p.y < -5 && p.y > -12) {
-		return 5;
+		return 9;
 	}
 	if (p.x == 2 && p.z == 0 && p.y < -10) {
-		return 5;
+		return 9;
 	}
 	return 0;
 }
@@ -676,13 +740,13 @@ int large_mushroom(vec3 p, int dir) {
 		}
 	}
 	if (p.x == 0 && p.z == 0 && p.y < 0 && p.y > -9) {
-		return 5;
+		return 9;
 	}
 	if (p.x == 0 && p.z == dir && p.y < -7 && p.y > -18) {
-		return 5;
+		return 9;
 	}
 	if (p.x == 0 && p.z == 2 * dir && p.y < -16) {
-		return 5;
+		return 9;
 	}
 	return 0;
 }
@@ -992,27 +1056,51 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(0, 0, .95, 1);
 	}
 	else if (block_type == 5) {
-		//vec2 uvs = getUVs(point, normal);
-		//return vec4(uvs, 1, 1);
-		return vec4(.95, .95, .95, 1);
+		return vec4(0.95, 0.95, 0.95, 1);
 	}
 	else if (block_type == 6) {
-		// blue purple
-		//return vec4(0.529, 0.454, 0.686, 1);
-		return vec4(1, 0.5, 0, 1);
+		vec3 orange = vec3(1.0, 0.5, 0.0);
+		float w = worleyNoise(point.xz);
+		if(w < 0.35) {
+			return vec4(1 - (w * (vec3(1) - orange)), 1);
+		}
+		return vec4(orange, 1);
 	}
 	else if (block_type == 7) {
-		// pink
-		//return vec4(0.686, 0.454, 0.603, 1);
-		return vec4(1, 0.5, 0, 1);
+		// dark blue cyan spots
+		vec3 dark_orange = vec3(0.6, 0.3, 0.1);
+		vec3 green = vec3(0.3, 0.9, 0.0);
+		float w = worleyNoise(point.xz + vec2(5));
+		if(w < 0.25) {
+			return vec4(green - (w * (vec3(0.5) - green)), 1);
+		}
+		return vec4(dark_orange, 1);
 	}
 	else if (block_type == 8) {
-		// whiteish blue
-		//return vec4(0.709, 0.705, 0.935, 1);
-		return vec4(1, 0.5, 0, 1);
+		// greenish-blue cyan spots
+		vec3 light_orange = vec3(0.8, 0.8, 0.3);
+		vec3 dark_purple = vec3(0.3, 0.1, 0.6);
+
+		//mushroom dots 
+		vec3 fragColor = vec3(0.070, 0.137, 0.670);
+		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
+        float radius = 0.05;
+    	float dist = dotsPattern(uv, radius, 1.8);
+    	vec3 dotcolor = dark_purple;
+    	vec3 bg = light_orange;
+    	float circle = (radius - dist) * 100.0;
+    	float alpha = clamp(circle, 0.0, 1.0);
+    	vec3 color = mix(bg, dotcolor, alpha);
+    	return vec4(color, 1);
 	}
 	else if (block_type == 9) {
-		return vec4(1, 1, 1, 1);
+		vec2 uvs = getUVs(point, normal);
+		float val = fbm(uvs.x * 5, point.z);
+		val += 0.5 * fbm1D(point.x);
+		val = clamp(val, 0.0, 1.0);
+		vec3 col = mix(vec3(0.3, 0.1, 0.3), vec3(0.9), val);
+		return vec4(col, 1);
+		// return vec4(1)
 	}
 	else if (block_type == 10) {
 		//return vec4(1, 0.5, 0, 1);
@@ -1059,16 +1147,6 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		//if (r < 0.5) {
 			combined = mix(combined, vec3(0.639, 0.176, 0.725), r / 2.0);
 		//}
-		/** mushroom dots 
-		vec3 fragColor = vec3(0.070, 0.137, 0.670);
-		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
-        float radius = 0.05;
-    	float dist = dotsPattern(uv, radius, 1.8);
-    	vec3 dotcolor = vec3(0.349, 0.133, 0.427);
-    	vec3 bg = fragColor;
-    	float circle = (radius - dist) * 100.0;
-    	float alpha = clamp(circle, 0.0, 1.0);
-    	vec3 color = mix(bg, dotcolor, alpha); **/
 		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
