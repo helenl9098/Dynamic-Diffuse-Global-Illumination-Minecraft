@@ -1019,11 +1019,11 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
         // cave ground moss green
         vec2 uv = getUVs(point, normal);
         vec3 base_green = vec3(0.2f, 1.f, 0.1f);
-        vec3 base_purple = vec3(0.7f, 0.1f, 0.6f);
+        vec3 base_purple = vec3(0.2f, 0.1f, 0.3f);
         // vec2 axis = normalize(uv - vec2(0.5)) * length(floor(point));
         vec2 axis = normalize(uv - vec2(0.5));
         float r = interpNoise2D(axis.x, axis.y);
-        vec3 moss_col = mix(base_green, base_purple, distance(uv, vec2(0.5)) - 0.5f - r * 0.2f);
+        vec3 moss_col = mix(base_green, base_purple, 2.f * distance(uv, vec2(0.5)) + r * 0.3f);
 		return vec4(moss_col, 1);
 	}
 	else if (block_type == 13) {
@@ -1033,7 +1033,7 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
         ivec2 cell_idx = ivec2(floor(uv * 7));
         vec3 base_blue = vec3(0.1f, 0.5f, 0.9f);
         float r = interpNoise2D(float(cell_idx.x), float(cell_idx.y));
-        return vec4(0.7f * r * r, 0.3f, 0.6f + r, 1);
+        return vec4(0.2f * r * r, r, 0.3f + r, 1);
 	}
 }
 

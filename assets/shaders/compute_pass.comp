@@ -176,9 +176,7 @@ void update_lights() {
         float t = 0.05f * render_settings.time;
 
         if (i == 0) {
-            float y = lights_0[i].pos.y + (i / 2) * 4 * sin(t);
-            float z = lights_0[i].pos.z + pow(-1, i * 3) * (i + 1) * 2 * cos(t);
-            lights_0[i].pos = vec3(lights_0[i].pos.x, y, z);
+            float y = lights_0[i].pos.y + 4 * sin(t);
             continue;
         }
         
