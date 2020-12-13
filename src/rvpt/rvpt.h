@@ -72,7 +72,7 @@ public:
     {
         alignas(4) int screen_width = 1600;
         alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 8;
+        alignas(4) int max_bounces = 10;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;

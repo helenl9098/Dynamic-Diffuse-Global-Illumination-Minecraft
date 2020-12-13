@@ -60,8 +60,7 @@ struct Light
 
 const int num_lights[3] = {1, 1, 2};
 
-
-Light lights_0[num_lights[0]] = {{20.f, vec3(1.f), vec3(4, 17.5, 4.5)}};
+Light lights_0[num_lights[0]] = {{100.f, vec3(1.f), vec3(4, 17.5, 8.5)}};
 
 /*Light lights_0[num_lights[0]] = {{20.f, vec3(1.f), vec3(4, 17.5, 8.5)},
                                  {10.f, vec3(1.f, 0.1f, 0.1f), vec3(0, 0, 0)},
