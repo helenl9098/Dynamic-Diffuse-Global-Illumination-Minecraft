@@ -50,25 +50,27 @@ void RVPT::create_staging_buffer(VkDeviceSize size, VkBufferUsageFlags usage, Vk
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(vk_device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(vk_device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = findMemoryType(context.device.physical_device.physical_device,
+                                               memRequirements.memoryTypeBits,
+                                               properties);
 
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(vk_device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(vk_device, buffer, bufferMemory, 0);
 }
 
 void RVPT::transition_image_layout(VkImage image, VkFormat format,
@@ -102,6 +104,7 @@ void RVPT::transition_image_layout(VkImage image, VkFormat format,
 
         sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
         destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
     else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
              newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
@@ -110,7 +113,9 @@ void RVPT::transition_image_layout(VkImage image, VkFormat format,
         barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
     }
     else
     {
@@ -173,11 +178,17 @@ VK::Image RVPT::create_block_texture()
         throw std::runtime_error("failed to load texture image!");
     }
 
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+    create_staging_buffer(
+        image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer,
+        staging_buffer_memory);
 
-    VK::Buffer staging_buffer =
-        VK::Buffer(vk_device, memory_allocator, "staging_buffer", VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                   image_size, VK::MemoryUsage::cpu_to_gpu);
-    staging_buffer.copy_to(pixels);
+    void* data;
+    vkMapMemory(vk_device, staging_buffer_memory, 0, image_size, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(image_size));
+    vkUnmapMemory(vk_device, staging_buffer_memory);
 
     stbi_image_free(pixels);
 
@@ -192,12 +203,15 @@ VK::Image RVPT::create_block_texture()
     transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    copy_buffer_to_image(staging_buffer.get(), block_texture_image.get(), static_cast<uint32_t>(tex_width),
+    copy_buffer_to_image(staging_buffer, block_texture_image.get(), static_cast<uint32_t>(tex_width),
                       static_cast<uint32_t>(tex_height));
 
     transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB,
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    vkDestroyBuffer(vk_device, staging_buffer, nullptr);
+    vkFreeMemory(vk_device, staging_buffer_memory, nullptr);
 
     return std::move(block_texture_image);
 
