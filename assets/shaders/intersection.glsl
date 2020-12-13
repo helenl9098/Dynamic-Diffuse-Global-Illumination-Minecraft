@@ -465,12 +465,12 @@ float opRep(in vec3 p, in vec3 c)
 
 float opRepLim(in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
-    vec3 probeOrigin = c * clamp(round(p / c), -l, l);
-
-    probePos = probeOrigin;
-
-    vec3 q = p - probeOrigin;
-    return sdSphere(q, 0.2);  // probe radius here
+	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
+	
+	probePos = probeOrigin;
+	
+    vec3 q = p-probeOrigin;
+    return sdSphere(q, 0.2); // probe radius here
 }
 
 float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos, vec3 field_origin)
@@ -640,11 +640,6 @@ int small_mushroom(vec3 p) {
 }
 
 int medium_mushroom(vec3 p) {
-	/*
-	if (sdDisk(p, 3, 0) < 0 && p.y == 0) {
-		return true;
-	}
-	return false; */
 	if (sdRoundBox(p, vec3(2, 0.5, 2), 1.0) <= 0) {
 		if (p.y > 0) {
 			return 6;
@@ -691,6 +686,7 @@ int large_mushroom(vec3 p, int dir) {
 	}
 	return 0;
 }
+
 
 int opRepLim( in vec3 p, in float c, in vec3 l, int type )
 {
@@ -943,6 +939,13 @@ vec2 getUVs(vec3 point, vec3 normal) {
 	return result_uv;
 }
 
+float dotsPattern(vec2 point, float radius, float cellSize) {
+    float c = 4.0 * radius * cellSize;
+    float h = c / 2.0;
+    point = mod(point + h, c) - h;
+    return length(point) - radius;
+}
+
 vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	/* BLOCK TYPE KEY: 
 	0: EMPTY
@@ -951,14 +954,14 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	3. GREEN
 	4. BLUE
 	5. WHITE
-	6. MUSHROOM BLOCK 1
+	6. MUSHROOM BLOCK 1 // Janine
 	7. MUSHROOM BLOCK 2
 	8. MUSHROOM BLOCK 3
-	9. MUSHROOM STEM
-	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
-	11. CAVE GROUND (RED)
-	12. CAVE GROUND MOSS (GREEN)
-	13. CAVE GROUND MOLD (BLUE)
+	9. MUSHROOM STEM // Janine
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN) // helen
+	11. CAVE GROUND (RED) // helen
+	12. CAVE GROUND MOSS (GREEN) // Spencer
+	13. CAVE GROUND MOLD (BLUE) // spencer
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
@@ -995,25 +998,78 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	}
 	else if (block_type == 6) {
 		// blue purple
-		return vec4(0.529, 0.454, 0.686, 1);
-		//return vec4(getUVs(point, normal), 1, 1);
+		//return vec4(0.529, 0.454, 0.686, 1);
+		return vec4(1, 0.5, 0, 1);
 	}
 	else if (block_type == 7) {
 		// pink
-		return vec4(0.686, 0.454, 0.603, 1);
+		//return vec4(0.686, 0.454, 0.603, 1);
+		return vec4(1, 0.5, 0, 1);
 	}
 	else if (block_type == 8) {
 		// whiteish blue
-		return vec4(0.709, 0.705, 0.935, 1);
+		//return vec4(0.709, 0.705, 0.935, 1);
+		return vec4(1, 0.5, 0, 1);
 	}
 	else if (block_type == 9) {
 		return vec4(1, 1, 1, 1);
 	}
 	else if (block_type == 10) {
-		return vec4(1, 0.5, 0, 1);
+		//return vec4(1, 0.5, 0, 1);
+		vec4 color = vec4(0.568, 0.133, 0.439, 1.0);
+		if (point.y < -8) {
+			color = vec4(0.349, 0.133, 0.427, 1.0);
+		}
+		else if (point.y < -6) {
+			color = vec4(0.568, 0.133, 0.439, 1.0);
+		}
+		else if (point.y < -5) {
+			color = vec4(0.639, 0.176, 0.725, 1);
+		}
+		else if (point.y < 0) {
+			color =vec4(0.274, 0.188, 0.772, 1);
+		}
+		else if (point.y < 4) {
+			color = vec4(0.341, 0.270, 0.768, 1);
+		}
+		else if (point.y < 6) {
+			color = vec4(0.368, 0.203, 0.415, 1);
+		}
+		else if (point.y < 11) {
+			color = vec4(0.470, 0.270, 0.729, 1);
+		}
+		vec2 uv = getUVs(point, normal);
+		float r = fbm(0.05, (uv.y + point.y) * 0.3);
+		vec3 wallColor = vec3(0.294, 0.007, 0.152);
+		vec3 combined = mix(wallColor, vec3(color), r);
+		//return color * r;
+		//return color;
+		return vec4(combined, 1);
 	}
 	else if (block_type == 11) {
-		return vec4(1, 0, 0, 1);
+		//return vec4(1, 0, 0, 1);
+		//vec3 color = vec3(0.070, 0.137, 0.670);
+		vec3 color = vec3(0.294, 0.007, 0.152);
+		vec3 moldcolor = vec3(0.901, 0.992, 0.427);
+		float r = (random1(ceil(point)) / 3); // range of 0.3 to 0.8
+		vec3 combined = mix(color, moldcolor, r);
+
+		vec2 uv = getUVs(point, normal);
+		r = fbm(uv.x * 2.0, uv.y * 2.0); 
+		//if (r < 0.5) {
+			combined = mix(combined, vec3(0.639, 0.176, 0.725), r / 2.0);
+		//}
+		/** mushroom dots 
+		vec3 fragColor = vec3(0.070, 0.137, 0.670);
+		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
+        float radius = 0.05;
+    	float dist = dotsPattern(uv, radius, 1.8);
+    	vec3 dotcolor = vec3(0.349, 0.133, 0.427);
+    	vec3 bg = fragColor;
+    	float circle = (radius - dist) * 100.0;
+    	float alpha = clamp(circle, 0.0, 1.0);
+    	vec3 color = mix(bg, dotcolor, alpha); **/
+		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
         // cave ground moss green
@@ -1024,7 +1080,7 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
         vec2 axis = normalize(uv - vec2(0.5));
         float r = interpNoise2D(axis.x, axis.y);
         vec3 moss_col = mix(base_green, base_purple, 2.f * distance(uv, vec2(0.5)) + r * 0.3f);
-		return vec4(moss_col, 1);
+        return vec4(moss_col, 1);
 	}
 	else if (block_type == 13) {
         // cave ground mold blue
@@ -1045,12 +1101,11 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene)
     vec3 curr_cell = vec3(floor(ray.origin));
     vec3 ray_dir = normalize(ray.direction);
 
-    vec3 t2;
-    float curr_t = 0.0;
-    for (int i = 0; i < 200; i++)
-    {
-        // calculate distance to voxel boundary
-        t2 = max((-fract(ray_origin)) / ray_dir, (1. - fract(ray_origin)) / ray_dir);
+	vec3 t2;
+	float curr_t = 0.0;
+	for (int i = 0; i < 150; i++) {
+	    // calculate distance to voxel boundary
+        t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
         // go to next voxel
         float min_val = min(min(t2.x, t2.y), t2.z) + 0.0001;
         curr_t += min_val;
@@ -1079,9 +1134,10 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene)
 
             info.normal = normalize(normal);
 
-            Material mat = materials[1];  // TO DO: Don't hard code this
-            mat.albedo = getColorAt(ray_origin, block_type, normalize(normal));
-            info.mat = convert_old_material(mat);
+
+        	Material mat;
+        	mat.albedo = getColorAt(ray_origin, block_type, normalize(normal));
+			info.mat = convert_old_material(mat);
 
             return true;
         }
@@ -1263,7 +1319,7 @@ bool intersect_scene
         if (temp_isect.t < closest_t)
         {
             info = temp_isect;
-            Material mat = materials[0];
+            Material mat;
             info.mat = convert_old_material(mat);
             info.mat.emissive = get_light(scene, i).col;
             info.type = 2;
@@ -1434,14 +1490,15 @@ bool intersect_cubes_scene
 
         // intersect_sphere(temp_ray, mint, closest_t, temp_isect);
         intersect_sphere(temp_ray, mint, closest_t, temp_isect);
-        if (temp_isect.t < closest_t)
-        {
-            info = temp_isect;
-            Material mat = materials[int(sphere.mat_id.x)];
-            info.mat = convert_old_material(mat);
-        }
-        closest_t = min(temp_isect.t, closest_t);
-    }
+		if (temp_isect.t<closest_t)
+		{
+			info = temp_isect;
+			Material mat;
+			mat.albedo = vec4(1, 1, 1, 1);
+			info.mat = convert_old_material(mat);
+		}
+		closest_t = min(temp_isect.t, closest_t);
+	}
 
     /*
     if (intersect_cube(ray, mint, maxt, vec3(0, 0, 0), temp_isect)) {
@@ -1781,9 +1838,10 @@ bool intersect_spheres(Ray ray, inout Record record)
                 record.distance = distance;
                 record.intersection = ray.origin + ray.direction * distance;
                 record.normal = normalize(record.intersection - sphere.origin);
-                record.mat = materials[int(sphere.mat_id.x)];
-                record.albedo = materials[int(sphere.mat_id.x)].albedo.xyz;
-                record.emission = materials[int(sphere.mat_id).x].emission.xyz;
+                Material mat;
+                record.mat = mat;
+                record.albedo = vec3(1, 1, 1);
+                record.emission = vec3(1, 1, 1);
             }
         }
     }

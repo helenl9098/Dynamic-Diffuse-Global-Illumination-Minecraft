@@ -25,6 +25,7 @@ struct DebugVertex
     glm::vec3 color;
 };
 
+/*
 uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
@@ -73,7 +74,48 @@ void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
     vkBindBufferMemory(device, buffer, bufferMemory, 0);
 }
 
-void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
+void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling,
+                 VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image,
+                 VkDeviceMemory& imageMemory, VkPhysicalDevice physicalDevice, VkDevice device)
+{
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+
+    if (vkAllocateMemory(device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    vkBindImageMemory(device, image, imageMemory, 0);
+}
+
+void RVPT::createTextureImage(VkPhysicalDevice physicalDevice, VkImage textureImage,
+                        VkDeviceMemory textureImageMemory)
 { 
     int texWidth, texHeight, texChannels; 
     stbi_uc* pixels =
@@ -88,18 +130,49 @@ void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+    createBuffer(physicalDevice, vk_device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(vk_device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkUnmapMemory(vk_device, stagingBufferMemory);
 
     stbi_image_free(pixels);
 
-}
+    createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+                VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory,
+                physicalDevice, vk_device);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {texWidth, texHeight, 1};
+
+    VK::CommandBuffer commandBuffer =
+        VK::CommandBuffer(vk_device, compute_queue.has_value() ? *compute_queue : *graphics_queue,
+                          "texture_command_buffer_");
+    
+    vkCmdCopyBufferToImage(commandBuffer.get(), 
+                            stagingBuffer, 
+                            textureImage, 
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+                            1,
+                           &region);
+
+    vkDestroyBuffer(vk_device, stagingBuffer, nullptr);
+    vkFreeMemory(vk_device, stagingBufferMemory, nullptr);
+} */
 
 bool RVPT::PreviousFrameState::operator==(RVPT::PreviousFrameState const& right)
 {
@@ -195,7 +268,6 @@ bool RVPT::update()
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 
     per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
-    per_frame_data[current_frame_index].material_buffer.copy_to(materials);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
 	
     per_frame_data[current_frame_index].irradiance_field_uniform.copy_to(ir);
@@ -635,7 +707,6 @@ void RVPT::recreate_probe_textures() {
             raytracing_descriptors.push_back(std::vector{frame.random_buffer.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.camera_uniform.descriptor_info()});
             raytracing_descriptors.push_back(std::vector{frame.sphere_buffer.descriptor_info()});
-            raytracing_descriptors.push_back(std::vector{frame.material_buffer.descriptor_info()});
 
             raytracing_descriptors.push_back(
                 std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
@@ -678,7 +749,6 @@ void RVPT::recreate_probe_textures() {
                 probe_descriptors.push_back(
                     std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
                 probe_descriptors.push_back(std::vector{frame.sphere_buffer.descriptor_info()});
-                probe_descriptors.push_back(std::vector{frame.material_buffer.descriptor_info()});
                 probe_descriptors.push_back(
                     std::vector{frame.irradiance_field_uniform.descriptor_info()});
                 rendering_resources->probe_descriptor_pool.update_descriptor_sets(
@@ -716,11 +786,10 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
         {3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
+        {6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
+		{7, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
+        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
@@ -735,8 +804,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output albedo
         {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
+        {5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
     };
 
     // Probe pipeline setup
@@ -840,8 +908,9 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
         static_cast<VkDeviceSize>(512 * 512 * 4),
         VK::MemoryUsage::gpu
     );
-
-    //createTextureImage(context.device.physical_device.physical_device, vk_device);
+    VkImage textureImage;
+    VkDeviceMemory textureImageMemory;
+    //createTextureImage(context.device.physical_device.physical_device, textureImage, text);
 
     VkFormat depth_format =
         VK::get_depth_image_format(context.device.physical_device.physical_device);
@@ -905,10 +974,6 @@ void RVPT::add_per_frame_data(int index)
         VK::Buffer(vk_device, memory_allocator, "spheres_buffer_" + std::to_string(index),
                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Sphere) * spheres.size(),
                    VK::MemoryUsage::cpu_to_gpu);
-    auto material_buffer =
-        VK::Buffer(vk_device, memory_allocator, "materials_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Material) * materials.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
 
     // LOOK: the definition of the probe ray buffer as well as command buffer + workfence
     auto probe_buffer =
@@ -950,7 +1015,6 @@ void RVPT::add_per_frame_data(int index)
     raytracing_descriptors.push_back(std::vector{random_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{camera_uniform.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
 	
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
@@ -971,7 +1035,6 @@ void RVPT::add_per_frame_data(int index)
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
     probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
     probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
     probe_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
                                                                       probe_descriptors);
@@ -994,8 +1057,7 @@ void RVPT::add_per_frame_data(int index)
 
     per_frame_data.push_back(RVPT::PerFrameData{
         std::move(settings_uniform), std::move(output_image), std::move(random_buffer),
-        std::move(camera_uniform), std::move(sphere_buffer), 
-        std::move(material_buffer), std::move(probe_buffer),
+        std::move(camera_uniform), std::move(sphere_buffer), std::move(probe_buffer),
         std::move(probe_command_buffer), std::move(probe_work_fence),
 		std::move(irradiance_field_uniform),
         std::move(raytrace_command_buffer), std::move(raytrace_work_fence),
@@ -1114,11 +1176,6 @@ void RVPT::record_compute_command_buffer()
                   per_frame_data[current_frame_index].output_image.height / 16, 1);
 
     command_buffer.end();
-}
-
-void RVPT::add_material(Material material)
-{
-    materials.emplace_back(material);
 }
 
 void RVPT::add_sphere(Sphere sphere)

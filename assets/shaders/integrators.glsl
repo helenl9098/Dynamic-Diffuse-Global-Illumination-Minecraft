@@ -41,7 +41,7 @@ vec3 integrator_DDGI
     Isect info;
     bool intersect = intersect_scene(ray, mint, maxt, info);
     Isect temp_info;
-
+    
     if(render_settings.visualize_probes) {    // Probes visualization here
         vec3 probe_pos = vec3(0);
         vec3 tgt_pos = vec3(2, 2, 2);
@@ -59,7 +59,7 @@ vec3 integrator_DDGI
                         return vec3(1, 0, 1);
                         break;
                     }
-                }*/
+                } */
 
                 return vec3(0, 1, 1);  // probe color here
             }

@@ -37,12 +37,11 @@ ivec2 dim = imageSize(result_image);
 uint iframe = 1;
 
 layout(std430, binding = 4) buffer Spheres { Sphere spheres[]; };
-layout(std430, binding = 5) buffer Materials { Material materials[]; };
 
-layout(binding = 6, rgba8) uniform readonly image2D probe_image_albedo;
-layout(binding = 7, rgba8) uniform readonly image2D probe_image_distances;
+layout(binding = 5, rgba8) uniform readonly image2D probe_image_albedo;
+layout(binding = 6, rgba8) uniform readonly image2D probe_image_distances;
 
-layout(binding = 8) uniform IrradianceField
+layout(binding = 7) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
@@ -51,7 +50,7 @@ layout(binding = 8) uniform IrradianceField
     vec3 field_origin;
 } irradiance_field;
 
-layout(binding = 9, rgba8) uniform readonly image2D block_texture;
+layout(binding = 8, rgba8) uniform readonly image2D block_texture;
 
 #include "util.glsl"
 #include "camera.glsl"

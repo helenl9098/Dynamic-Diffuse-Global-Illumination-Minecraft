@@ -19,7 +19,6 @@
 #include "timer.h"
 #include "geometry.h"
 #include "probe.h"
-#include "material.h"
 
 const uint32_t MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -61,7 +60,6 @@ public:
     void reload_shaders();
     void set_raytrace_mode(int mode);
 
-    void add_material(Material material);
     void add_sphere(Sphere sphere);
     void generate_probe_rays();
 
@@ -72,11 +70,9 @@ public:
 
     struct RenderSettings
     {
-        alignas(4) int screen_width = 80;
-        alignas(4) int screen_height = 45;
-        // alignas(4) int screen_width = 1600;
-        // alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 2;
+        alignas(4) int screen_width = 1600;
+        alignas(4) int screen_height = 900;
+        alignas(4) int max_bounces = 8;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
@@ -86,13 +82,12 @@ public:
 	
     struct IrradianceField
     {
-        alignas(16) glm::ivec3 probe_count = glm::ivec3(5, 5, 5); // number of probes in x, y, z directions
-        int side_length = 7.5;                          // side length of the cubes that encase the probe
+        alignas(16) glm::ivec3 probe_count = glm::ivec3(9, 7, 9); // number of probes in x, y, z directions
+        int side_length = 11.0;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
-        // int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        int sqrt_rays_per_probe = 15;
-        alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
-
+        int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
+        alignas(16) glm::vec3 field_origin = glm::vec3(1.4, 0, 1);
+        bool visualize = true;
     };
 
     IrradianceField ir;
@@ -120,7 +115,6 @@ private:
     std::vector<float> random_numbers;
 
     std::vector<Sphere> spheres;
-    std::vector<Material> materials;
     std::vector<ProbeRay> probe_rays;
 
     struct PreviousFrameState
@@ -197,7 +191,6 @@ private:
         VK::Buffer random_buffer;
         VK::Buffer camera_uniform;
         VK::Buffer sphere_buffer;
-        VK::Buffer material_buffer;
         VK::Buffer probe_buffer;
         VK::CommandBuffer probe_command_buffer;
         VK::Fence probe_work_fence;
@@ -222,6 +215,8 @@ private:
     void create_framebuffers();
     VK::Image create_probe_texture_albedo();
     void recreate_probe_textures();
+    void createTextureImage(VkPhysicalDevice physicalDevice, VkImage textureImage,
+                            VkDeviceMemory textureImageMemory);
 
     RenderingResources create_rendering_resources();
     void add_per_frame_data(int index);
