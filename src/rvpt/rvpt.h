@@ -76,10 +76,10 @@ public:
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
+        alignas(4) float time = 0.f;
         alignas(4) int visualize_probes = 0;
     } render_settings;
 	
-	// S_CHANGE
     struct IrradianceField
     {
         alignas(16) glm::ivec3 probe_count = glm::ivec3(9, 7, 9); // number of probes in x, y, z directions

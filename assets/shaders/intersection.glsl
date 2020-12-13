@@ -11,24 +11,24 @@
 /*--------------------------------------------------------------------------*/
 
 /*
-	TODO:
-	
-	- Fix triangles to use vec3 for vertices and not vec4.
-	- Profile if const in and so on is faster.
-	- Profile whether intersect_any vs intersect is slower/faster.
-	- Add uvs for texturing.
-	- Use mat4 or mat3 + vec3 for sphere data (allows ellipsoids).
-	- Bring this further to instancing.
-	- Add material data from intersection.
-	
-	- Add aabb intersection.
-	- Add torus intersection.
-	- Add cylinder intersection.
-	- Add disk intersection.
-	- Add quadrics intersection.
-	- Add splines/patches intersection.
-	- Write derivations for all new introduced intersections in the 
-	appendix.
+        TODO:
+
+        - Fix triangles to use vec3 for vertices and not vec4.
+        - Profile if const in and so on is faster.
+        - Profile whether intersect_any vs intersect is slower/faster.
+        - Add uvs for texturing.
+        - Use mat4 or mat3 + vec3 for sphere data (allows ellipsoids).
+        - Bring this further to instancing.
+        - Add material data from intersection.
+
+        - Add aabb intersection.
+        - Add torus intersection.
+        - Add cylinder intersection.
+        - Add disk intersection.
+        - Add quadrics intersection.
+        - Add splines/patches intersection.
+        - Write derivations for all new introduced intersections in the
+        appendix.
 
 */
 
@@ -36,441 +36,434 @@
 
 struct Material_new
 {
-	int  type; /* 0: diffuse, 1: perfect mirror */
-	vec3 base_color;
-	vec3 emissive;
+    int type; /* 0: diffuse, 1: perfect mirror */
+    vec3 base_color;
+    vec3 emissive;
     float ior;
 };
 
 Material_new convert_old_material
 
-	(Material mat)
-	
+    (Material mat)
+
 {
-	Material_new res;
-	res.type = int(mat.data.x);
-	res.base_color = mat.albedo.xyz;
-	res.emissive = mat.emission.xyz;
+    Material_new res;
+    res.type = int(mat.data.x);
+    res.base_color = mat.albedo.xyz;
+    res.emissive = mat.emission.xyz;
     res.ior = mat.albedo.w;
-	
-	return res;
+
+    return res;
 }
 
 struct Isect
 
 /*
-	Structure containing the resulting data from an intersection.
+        Structure containing the resulting data from an intersection.
 */
 
 {
-	float t;      /* coordinate along the ray, INF -> none */
-	vec3  pos;    /* position in global coordinates */
-	vec3  normal; /* normal in global coordinates */
-	vec2  uv;     /* surface parametrization (for textures) */
-	Material_new mat;
-	int type;     /* 0/1 if no intersection,
-					 2   if it's a light
-					 3   if it's any block */
-}; /* Isect */
+    float t;     /* coordinate along the ray, INF -> none */
+    vec3 pos;    /* position in global coordinates */
+    vec3 normal; /* normal in global coordinates */
+    vec2 uv;     /* surface parametrization (for textures) */
+    Material_new mat;
+    int type; /* 0/1 if no intersection,
+                                 2   if it's a light
+                                 3   if it's any block */
+};            /* Isect */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_sphere_any
 
-	(Ray   ray,  /* ray for the intersection */
-	 float mint, /* lower bound for t */
-	 float maxt) /* upper bound for t */
-	 
-/*
-	Returns true if there is an intersection with the unit sphere 
-	with origin (0,0,0). The intersection is accepted if it is in 
-	(mint, maxt) along the ray.
-	
-	For the derivation see the appendix.
-*/
-	 
-{
-	/* A*t^2 - 2*B*t + C = 0 */
-	float A = dot(ray.direction, ray.direction);
-	float B = -dot(ray.direction, ray.origin);
-	float C = dot(ray.origin, ray.origin) - 1;
-	
-	/* discriminant */
-	float D = B*B-A*C;
-	D = D>0 ? sqrt(D) : INF;
-	
-	/* compute the two roots */
-	float t1 = (B-D)/A;
-	float t2 = (B+D)/A;
-	
-	/* check bounds validity in (mint, maxt) */
-	t1 = mint < t1 && t1 < maxt ? t1 : INF;
-	t2 = mint < t2 && t2 < maxt ? t2 : INF;
+    (Ray ray,    /* ray for the intersection */
+     float mint, /* lower bound for t */
+     float maxt) /* upper bound for t */
 
-	/* pick the closest valid root */
-	return min(t1,t2)<INF;
-	
+/*
+        Returns true if there is an intersection with the unit sphere
+        with origin (0,0,0). The intersection is accepted if it is in
+        (mint, maxt) along the ray.
+
+        For the derivation see the appendix.
+*/
+
+{
+    /* A*t^2 - 2*B*t + C = 0 */
+    float A = dot(ray.direction, ray.direction);
+    float B = -dot(ray.direction, ray.origin);
+    float C = dot(ray.origin, ray.origin) - 1;
+
+    /* discriminant */
+    float D = B * B - A * C;
+    D = D > 0 ? sqrt(D) : INF;
+
+    /* compute the two roots */
+    float t1 = (B - D) / A;
+    float t2 = (B + D) / A;
+
+    /* check bounds validity in (mint, maxt) */
+    t1 = mint < t1 && t1 < maxt ? t1 : INF;
+    t2 = mint < t2 && t2 < maxt ? t2 : INF;
+
+    /* pick the closest valid root */
+    return min(t1, t2) < INF;
+
 } /* intersect_sphere_any */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_sphere
 
-	(Ray       ray,  /* ray for the intersection */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
-	 
+    (Ray ray,        /* ray for the intersection */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     out Isect info) /* intersection data */
+
 /*
-	Returns true if there is an intersection with the unit sphere 
-	with origin (0,0,0). The intersection is accepted if it is in 
-	(mint, maxt) along the ray. Additionally, the intersection 
-	position and normal are computed (the direction of the normal is 
-	outside facing).
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the unit sphere
+        with origin (0,0,0). The intersection is accepted if it is in
+        (mint, maxt) along the ray. Additionally, the intersection
+        position and normal are computed (the direction of the normal is
+        outside facing).
+
+        For the derivation see the appendix.
 */
-	 
+
 {
+    /* A*t^2 - 2*B*t + C = 0 */
+    float A = dot(ray.direction, ray.direction);
+    float B = -dot(ray.direction, ray.origin);
+    float C = dot(ray.origin, ray.origin) - 1;
 
-	/* A*t^2 - 2*B*t + C = 0 */
-	float A = dot(ray.direction, ray.direction);
-	float B = -dot(ray.direction, ray.origin);
-	float C = dot(ray.origin, ray.origin) - 1;
-	
-	/* discriminant */
-	float D = B*B-A*C;
-	D = D>0 ? sqrt(D) : INF;
-	
-	/* compute the two roots */
-	float t1 = (B-D)/A;
-	float t2 = (B+D)/A;
-	
-	/* check bounds validity in (mint, maxt) */
-	t1 = mint < t1 && t1 < maxt ? t1 : INF;
-	t2 = mint < t2 && t2 < maxt ? t2 : INF;
+    /* discriminant */
+    float D = B * B - A * C;
+    D = D > 0 ? sqrt(D) : INF;
 
-	/* compute intersection data */
-	info.t = min(t1,t2);
-	info.pos = ray.origin + info.t*ray.direction;
-	info.normal = info.pos;
-	info.uv = vec2(0);
-	
-	return info.t<INF;
-	
+    /* compute the two roots */
+    float t1 = (B - D) / A;
+    float t2 = (B + D) / A;
+
+    /* check bounds validity in (mint, maxt) */
+    t1 = mint < t1 && t1 < maxt ? t1 : INF;
+    t2 = mint < t2 && t2 < maxt ? t2 : INF;
+
+    /* compute intersection data */
+    info.t = min(t1, t2);
+    info.pos = ray.origin + info.t * ray.direction;
+    info.normal = info.pos;
+    info.uv = vec2(0);
+
+    return info.t < INF;
+
 } /* intersect_sphere  */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_plane_any
 
-	(Ray   ray,  /* ray for the intersection */
-	 float d,    /* offset of the plane: <o,n>, o any point on the plane */
-	 vec3  n,    /* normal of the plane (not necessarily unit length) */
-	 float mint, /* lower bound for t */
-	 float maxt) /* upper bound for t */
-	
+    (Ray ray,    /* ray for the intersection */
+     float d,    /* offset of the plane: <o,n>, o any point on the plane */
+     vec3 n,     /* normal of the plane (not necessarily unit length) */
+     float mint, /* lower bound for t */
+     float maxt) /* upper bound for t */
+
 /*
-	Returns true if there is an intersection with the plane with the 
-	equation: <p,n> = d. The intersection is accepted if it is in 
-	(mint, maxt) along the ray.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the plane with the
+        equation: <p,n> = d. The intersection is accepted if it is in
+        (mint, maxt) along the ray.
+
+        For the derivation see the appendix.
 */
-	
+
 {
-	float t = (d-dot(ray.origin, n)) / dot(ray.direction,n);
-	return mint < t && t < maxt;
-	
+    float t = (d - dot(ray.origin, n)) / dot(ray.direction, n);
+    return mint < t && t < maxt;
+
 } /* intersect_plane_any */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_plane
 
-	(Ray       ray,  /* ray for the intersection */
-	 float     d,    /* offset of the plane: <o,n>, o: point on plane */
-	 vec3      n,    /* normal of the plane (not necessarily unit length) */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
-	
+    (Ray ray,        /* ray for the intersection */
+     float d,        /* offset of the plane: <o,n>, o: point on plane */
+     vec3 n,         /* normal of the plane (not necessarily unit length) */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     out Isect info) /* intersection data */
+
 /*
-	Returns true if there is an intersection with the plane with the 
-	equation: <p,n> = d. The intersection is accepted if it is in 
-	(mint, maxt) along the ray.
-	
-	Also computes the normal along the ray.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the plane with the
+        equation: <p,n> = d. The intersection is accepted if it is in
+        (mint, maxt) along the ray.
+
+        Also computes the normal along the ray.
+
+        For the derivation see the appendix.
 */
-	
+
 {
-	float t = (d-dot(ray.origin,n)) / dot(ray.direction,n);
-	
-	bool isect = mint < t && t < maxt;
-	
-	info.t = isect ? t : INF;
-	info.normal = normalize(n);
-	
-	return isect;
-	
+    float t = (d - dot(ray.origin, n)) / dot(ray.direction, n);
+
+    bool isect = mint < t && t < maxt;
+
+    info.t = isect ? t : INF;
+    info.normal = normalize(n);
+
+    return isect;
+
 } /* intersect_plane */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_triangle_any
 
-	(Ray   ray,  /* ray for the intersection */
-	 vec3  v0,   /* vertex 0 */
-	 vec3  v1,   /* vertex 1 */
-	 vec3  v2,   /* vertex 2 */
-	 float mint, /* lower bound for t */
-	 float maxt) /* upper bound for t */
-	 
+    (Ray ray,    /* ray for the intersection */
+     vec3 v0,    /* vertex 0 */
+     vec3 v1,    /* vertex 1 */
+     vec3 v2,    /* vertex 2 */
+     float mint, /* lower bound for t */
+     float maxt) /* upper bound for t */
+
 /*
-	Returns true if there is an intersection with the triangle (v0,v1,v2).
-	The intersection is accepted if it is in (mint, maxt) along the ray.
-	Uses 3x3 matrix inversion for intersection computation.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the triangle (v0,v1,v2).
+        The intersection is accepted if it is in (mint, maxt) along the ray.
+        Uses 3x3 matrix inversion for intersection computation.
+
+        For the derivation see the appendix.
 */
 
 {
-	/* linear system matrix */
-	mat3 A = mat3(ray.direction, v1-v0, v2-v0);
-	
-	/* formal solution A * x = b -> x = A^{-1} * b */
-	vec3 sol =  inverse(A) * (ray.origin - v0);
-	
-	/* need to flip t, since the solution actually computes -t */
-	float t = -sol.x;
-	
-	/* barycentric coordinates */
-	float u = sol.y;
-	float v = sol.z;
+    /* linear system matrix */
+    mat3 A = mat3(ray.direction, v1 - v0, v2 - v0);
 
-	return mint<t && t<maxt && 0<u && 0<v && u+v<1;
-	
+    /* formal solution A * x = b -> x = A^{-1} * b */
+    vec3 sol = inverse(A) * (ray.origin - v0);
+
+    /* need to flip t, since the solution actually computes -t */
+    float t = -sol.x;
+
+    /* barycentric coordinates */
+    float u = sol.y;
+    float v = sol.z;
+
+    return mint < t && t < maxt && 0 < u && 0 < v && u + v < 1;
+
 } /* intersect_triangle_any */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_triangle
 
-	(Ray       ray,  /* ray for the intersection */
-	 vec3      v0,   /* vertex 0 */
-	 vec3      v1,   /* vertex 1 */
-	 vec3      v2,   /* vertex 2 */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
+    (Ray ray,        /* ray for the intersection */
+     vec3 v0,        /* vertex 0 */
+     vec3 v1,        /* vertex 1 */
+     vec3 v2,        /* vertex 2 */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     out Isect info) /* intersection data */
 
 /*
-	Returns true if there is an intersection with the triangle (v0,v1,v2).
-	The intersection is accepted if it is in (mint, maxt) along the ray.
-	Uses 3x3 matrix inversion for intersection computation.
-	
-	Computes also the intersection position, normal, uv coordinates.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the triangle (v0,v1,v2).
+        The intersection is accepted if it is in (mint, maxt) along the ray.
+        Uses 3x3 matrix inversion for intersection computation.
+
+        Computes also the intersection position, normal, uv coordinates.
+
+        For the derivation see the appendix.
 */
 
 {
-	/* linear system matrix */
-	mat3 A = mat3(ray.direction, v1-v0, v2-v0);
-	
-	/* formal solution A * x = b -> x = A^{-1} * b */
-	vec3 sol =  inverse(A) * (ray.origin - v0);
-	
-	/* need to flip t, since the solution actually computes -t */
-	float t = -sol.x;
-	
-	/* barycentric coordinates */
-	float u = sol.y;
-	float v = sol.z;
-	
-	/* is the intersection valid? */
-	bool isect = mint<t && t<maxt && 0<u && 0<v && u+v<1;
-	
-	/* compute intersection data */
-	info.t = isect ? sol.x : INF;
-	info.pos = ray.origin + info.t*ray.direction;
-	info.normal = normalize(cross(A[1],A[2]));
-	info.uv = vec2(u,v);
-	
-	return isect;
-	
+    /* linear system matrix */
+    mat3 A = mat3(ray.direction, v1 - v0, v2 - v0);
+
+    /* formal solution A * x = b -> x = A^{-1} * b */
+    vec3 sol = inverse(A) * (ray.origin - v0);
+
+    /* need to flip t, since the solution actually computes -t */
+    float t = -sol.x;
+
+    /* barycentric coordinates */
+    float u = sol.y;
+    float v = sol.z;
+
+    /* is the intersection valid? */
+    bool isect = mint < t && t < maxt && 0 < u && 0 < v && u + v < 1;
+
+    /* compute intersection data */
+    info.t = isect ? sol.x : INF;
+    info.pos = ray.origin + info.t * ray.direction;
+    info.normal = normalize(cross(A[1], A[2]));
+    info.uv = vec2(u, v);
+
+    return isect;
+
 } /* intersect_triangle */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_triangle_any_fast
 
-	(Ray   ray,  /* ray for the intersection */
-	 vec3  v0,   /* vertex 0 */
-	 vec3  v1,   /* vertex 1 */
-	 vec3  v2,   /* vertex 2 */
-	 float mint, /* lower bound for t */
-	 float maxt) /* upper bound for t */
-	 
+    (Ray ray,    /* ray for the intersection */
+     vec3 v0,    /* vertex 0 */
+     vec3 v1,    /* vertex 1 */
+     vec3 v2,    /* vertex 2 */
+     float mint, /* lower bound for t */
+     float maxt) /* upper bound for t */
+
 /*
-	Returns true if there is an intersection with the triangle (v0,v1,v2).
-	The intersection is accepted if it is in (mint, maxt) along the ray.
-	Uses the metric tensor for intersection computation.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the triangle (v0,v1,v2).
+        The intersection is accepted if it is in (mint, maxt) along the ray.
+        Uses the metric tensor for intersection computation.
+
+        For the derivation see the appendix.
 */
 
-{	
-	/* edges and non-normalized normal */
-	vec3 e0 = v1-v0;
-	vec3 e1 = v2-v0;
-	vec3 n = cross(e0,e1);
-	
-	/* intersect plane in which the triangle is situated */
-	float t = dot(v0-ray.origin,n) / dot(ray.direction,n);
-	vec3 p = ray.origin + t*ray.direction;
-	
-	/* intersection position relative to v0 */
-	vec3 p0 = p - v0;
-	
-	/* transform p0 with the basis vectors */
-	vec2 b = vec2(dot(p0,e0), dot(p0,e1));
-	
-	/* adjoint of the 2x2 metric tensor (contravariant) */
-	mat2 A_adj = mat2(dot(e1,e1), -dot(e0,e1), -dot(e0,e1), dot(e0,e0));
-	
-	/* denominator of the inverse 2x2 metric tensor (contravariant) */
-	float inv_det = 1.0/(A_adj[0][0]*A_adj[1][1]-A_adj[0][1]*A_adj[1][0]);
-	
-	/* barycentric coordinate */
-	vec2 uv = inv_det * (A_adj * b);
-	
-	return mint<t && t<maxt && 0<uv.x && 0<uv.y && uv.x+uv.y<1;
-	
+{
+    /* edges and non-normalized normal */
+    vec3 e0 = v1 - v0;
+    vec3 e1 = v2 - v0;
+    vec3 n = cross(e0, e1);
+
+    /* intersect plane in which the triangle is situated */
+    float t = dot(v0 - ray.origin, n) / dot(ray.direction, n);
+    vec3 p = ray.origin + t * ray.direction;
+
+    /* intersection position relative to v0 */
+    vec3 p0 = p - v0;
+
+    /* transform p0 with the basis vectors */
+    vec2 b = vec2(dot(p0, e0), dot(p0, e1));
+
+    /* adjoint of the 2x2 metric tensor (contravariant) */
+    mat2 A_adj = mat2(dot(e1, e1), -dot(e0, e1), -dot(e0, e1), dot(e0, e0));
+
+    /* denominator of the inverse 2x2 metric tensor (contravariant) */
+    float inv_det = 1.0 / (A_adj[0][0] * A_adj[1][1] - A_adj[0][1] * A_adj[1][0]);
+
+    /* barycentric coordinate */
+    vec2 uv = inv_det * (A_adj * b);
+
+    return mint < t && t < maxt && 0 < uv.x && 0 < uv.y && uv.x + uv.y < 1;
+
 } /* intersect_triangle_any_fast */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_triangle_fast
 
-	(Ray       ray,  /* ray for the intersection */
-	 vec3      v0,   /* vertex 0 */
-	 vec3      v1,   /* vertex 1 */
-	 vec3      v2,   /* vertex 2 */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
+    (Ray ray,        /* ray for the intersection */
+     vec3 v0,        /* vertex 0 */
+     vec3 v1,        /* vertex 1 */
+     vec3 v2,        /* vertex 2 */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     out Isect info) /* intersection data */
 
 /*
-	Returns true if there is an intersection with the triangle (v0,v1,v2).
-	The intersection is accepted if it is in (mint, maxt) along the ray.
-	Uses the metric tensor for intersection computation.
-	
-	Computes also the intersection position, normal, uv coordinates.
-	
-	For the derivation see the appendix.
+        Returns true if there is an intersection with the triangle (v0,v1,v2).
+        The intersection is accepted if it is in (mint, maxt) along the ray.
+        Uses the metric tensor for intersection computation.
+
+        Computes also the intersection position, normal, uv coordinates.
+
+        For the derivation see the appendix.
 */
-	 
+
 {
-	/* edges and non-normalized normal */
-	vec3 e0 = v1-v0;
-	vec3 e1 = v2-v0;
-	vec3 n = cross(e0,e1);
-	
-	/* intersect plane in which the triangle is situated */
-	float t = dot(v0-ray.origin,n) / dot(ray.direction,n);
-	vec3 p = ray.origin + t*ray.direction;
-	
-	/* intersection position relative to v0 */
-	vec3 p0 = p - v0;
-	
-	/* transform p0 with the basis vectors */
-	vec2 b = vec2(dot(p0,e0), dot(p0,e1));
-	
-	/* adjoint of the 2x2 metric tensor (contravariant) */
-	mat2 A_adj = mat2(dot(e1,e1), -dot(e0,e1), -dot(e0,e1), dot(e0,e0));
-	
-	/* denominator of the inverse 2x2 metric tensor (contravariant) */
-	float inv_det = 1.0/(A_adj[0][0]*A_adj[1][1]-A_adj[0][1]*A_adj[1][0]);
-	
-	/* barycentric coordinate */
-	vec2 uv = inv_det * (A_adj * b);
-	
-	/* is it a valid intersection? */
-	bool isect = mint<t && t<maxt && 0<uv.x && 0<uv.y && uv.x+uv.y<1;
-	
-	/* compute intersection data */
-	info.t = isect ? t : INF;
-	info.pos = ray.origin + info.t*ray.direction;
-	info.normal = n;
-	info.uv = uv;
-	
-	return isect;
-	
+    /* edges and non-normalized normal */
+    vec3 e0 = v1 - v0;
+    vec3 e1 = v2 - v0;
+    vec3 n = cross(e0, e1);
+
+    /* intersect plane in which the triangle is situated */
+    float t = dot(v0 - ray.origin, n) / dot(ray.direction, n);
+    vec3 p = ray.origin + t * ray.direction;
+
+    /* intersection position relative to v0 */
+    vec3 p0 = p - v0;
+
+    /* transform p0 with the basis vectors */
+    vec2 b = vec2(dot(p0, e0), dot(p0, e1));
+
+    /* adjoint of the 2x2 metric tensor (contravariant) */
+    mat2 A_adj = mat2(dot(e1, e1), -dot(e0, e1), -dot(e0, e1), dot(e0, e0));
+
+    /* denominator of the inverse 2x2 metric tensor (contravariant) */
+    float inv_det = 1.0 / (A_adj[0][0] * A_adj[1][1] - A_adj[0][1] * A_adj[1][0]);
+
+    /* barycentric coordinate */
+    vec2 uv = inv_det * (A_adj * b);
+
+    /* is it a valid intersection? */
+    bool isect = mint < t && t < maxt && 0 < uv.x && 0 < uv.y && uv.x + uv.y < 1;
+
+    /* compute intersection data */
+    info.t = isect ? t : INF;
+    info.pos = ray.origin + info.t * ray.direction;
+    info.normal = n;
+    info.uv = uv;
+
+    return isect;
+
 } /* intersect_triangle_fast */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_scene_any
 
-	(Ray   ray,  /* ray for the intersection */
-	 float mint, /* lower bound for t */
-	 float maxt) /* upper bound for t */
-	 
-/*
-	Returns true if there is an intersection with any primitive in the 
-	scene in (mint, maxt). 
-	
-	Note: this intersection routine has an early out through an `if`, idk 
-	if it does more bad than good in the sense of divergence, but 
-	it allows skipping any check after the first intersection. 
-*/
-	 
-{
-	/* intersect spheres */
-	for (int i = 0; i < spheres.length(); i++)
-	{
-		Sphere sphere = spheres[i];
-		
-		/* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
-		Ray temp_ray;
-		temp_ray.origin = (ray.origin - sphere.origin)/sphere.radius;
-		temp_ray.direction = ray.direction / sphere.radius;
-		
-		/* early out */
-		if (intersect_sphere_any(temp_ray, mint, maxt))
-			return true;
-	}
-	
-	return false;
-	
-} /* intersect_scene_any */
+    (Ray ray,    /* ray for the intersection */
+     float mint, /* lower bound for t */
+     float maxt) /* upper bound for t */
 
+/*
+        Returns true if there is an intersection with any primitive in the
+        scene in (mint, maxt).
+
+        Note: this intersection routine has an early out through an `if`, idk
+        if it does more bad than good in the sense of divergence, but
+        it allows skipping any check after the first intersection.
+*/
+
+{
+    /* intersect spheres */
+    for (int i = 0; i < spheres.length(); i++)
+    {
+        Sphere sphere = spheres[i];
+
+        /* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
+        Ray temp_ray;
+        temp_ray.origin = (ray.origin - sphere.origin) / sphere.radius;
+        temp_ray.direction = ray.direction / sphere.radius;
+
+        /* early out */
+        if (intersect_sphere_any(temp_ray, mint, maxt)) return true;
+    }
+
+    return false;
+
+} /* intersect_scene_any */
 
 float sdBox(vec3 p, vec3 b)
 {
-  vec3 q = abs(p) - b;
-  return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
 }
 
-float sdSphere(vec3 p, float s)
-{
-  return length(p)-s;
-}
+float sdSphere(vec3 p, float s) { return length(p) - s; }
 
-float opUnion( float d1, float d2 ) {  return min(d1,d2); }
-float opSubtraction( float d1, float d2 ) { return max(-d1,d2); }
- 
+float opUnion(float d1, float d2) { return min(d1, d2); }
+float opSubtraction(float d1, float d2) { return max(-d1, d2); }
+
 float opRep(in vec3 p, in vec3 c)
 {
-    vec3 q = mod(p+0.5*c,c)-0.5*c;
+    vec3 q = mod(p + 0.5 * c, c) - 0.5 * c;
     return sdSphere(q, 0.05);
 }
 
-
-float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
+float opRepLim(in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
 	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
 	
@@ -480,76 +473,70 @@ float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
     return sdSphere(q, 0.2); // probe radius here
 }
 
-float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos, vec3 field_origin) {
-
-	return opRepLim(point - field_origin, sideLength, vec3(probeCount / 2), probePos);
+float sceneSDF(vec3 point, ivec3 probeCount, float sideLength, out vec3 probePos, vec3 field_origin)
+{
+    return opRepLim(point - field_origin, sideLength, vec3(probeCount / 2), probePos);
 }
 
-vec3 estimateNormal(vec3 pos, ivec3 probeCount, float sideLength) {
-
+vec3 estimateNormal(vec3 pos, ivec3 probeCount, float sideLength)
+{
     float epsilon = 0.0001;
     vec3 normal = vec3(0);
 
-	vec3 temp = vec3(0);
-    normal.x = sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0))
-              - sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0));
-    normal.y = sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z), probeCount, sideLength, temp, vec3(0))
-              - sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z), probeCount, sideLength, temp, vec3(0));
-    normal.z = sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon), probeCount, sideLength, temp, vec3(0))
-              - sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon), probeCount, sideLength, temp, vec3(0));
+    vec3 temp = vec3(0);
+    normal.x =
+        sceneSDF(vec3(pos.x + epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0)) -
+        sceneSDF(vec3(pos.x - epsilon, pos.y, pos.z), probeCount, sideLength, temp, vec3(0));
+    normal.y =
+        sceneSDF(vec3(pos.x, pos.y + epsilon, pos.z), probeCount, sideLength, temp, vec3(0)) -
+        sceneSDF(vec3(pos.x, pos.y - epsilon, pos.z), probeCount, sideLength, temp, vec3(0));
+    normal.z =
+        sceneSDF(vec3(pos.x, pos.y, pos.z + epsilon), probeCount, sideLength, temp, vec3(0)) -
+        sceneSDF(vec3(pos.x, pos.y, pos.z - epsilon), probeCount, sideLength, temp, vec3(0));
 
     return normalize(normal);
 }
 
-
 // this is what ray traces the probes
-bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount,
-					  float sideLength, out Isect info, out vec3 probePos,
-					  vec3 field_origin) {
+bool implicit_surface(Ray ray, float mint, float maxt, ivec3 probeCount, float sideLength,
+                      out Isect info, out vec3 probePos, vec3 field_origin)
+{
+    // start of signed distance
+    vec3 ray_origin = ray.origin;
+    vec3 curr_cell = vec3(floor(ray.origin));
+    vec3 ray_dir = normalize(ray.direction);
 
-// start of signed distance
-	vec3 ray_origin = ray.origin;
-	vec3 curr_cell = vec3(floor(ray.origin));
-	vec3 ray_dir = normalize(ray.direction); 
+    float curr_t = 0.f;
+    bool isec = false;
+    while (curr_t < (100))
+    {
+        vec3 point = ray_origin + curr_t * ray_dir;
+        float dist = sceneSDF(point, probeCount, sideLength, probePos, field_origin);
 
-	float curr_t = 0.f;
-	bool isec = false;
-	while (curr_t < (100)) {
-
-		vec3 point = ray_origin + curr_t * ray_dir;
-		float dist = sceneSDF(point, probeCount, sideLength, probePos, field_origin);
-
-		if (dist < 0.001) {
-			info.t = curr_t;
+        if (dist < 0.001)
+        {
+            info.t = curr_t;
             info.normal = estimateNormal(point, probeCount, sideLength);
-           	return true;
-		}
-		curr_t += dist;
-	}
-	return false;
-//end of signed distance
-
+            return true;
+        }
+        curr_t += dist;
+    }
+    return false;
+    // end of signed distance
 }
 
-float cave_sdf(vec3 coords) {
-	float sdf = sdSphere(coords, 10.0);
-	return opUnion(sdf, sdSphere(coords + vec3(2, 2, 2), 5.0));
+float cave_sdf(vec3 coords)
+{
+    float sdf = sdSphere(coords, 10.0);
+    return opUnion(sdf, sdSphere(coords + vec3(2, 2, 2), 5.0));
 }
 
-float random1( vec3 p ) {
-    return fract(sin((dot(p, vec3(127.1,
-                                  311.7,
-                                  191.999)))) *         
-                 43758.5453);
-}
+float random1(vec3 p) { return fract(sin((dot(p, vec3(127.1, 311.7, 191.999)))) * 43758.5453); }
 
-float noise2D( vec2 p ) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) *
-                 43758.5453);
-}
+float noise2D(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-
-float interpNoise2D(float x, float y) {
+float interpNoise2D(float x, float y)
+{
     int intX = int(floor(x));
     float fractX = fract(x);
     int intY = int(floor(y));
@@ -565,18 +552,18 @@ float interpNoise2D(float x, float y) {
     return mix(i1, i2, fractY);
 }
 
-
-float fbm(float x, float y) {
+float fbm(float x, float y)
+{
     float total = 0;
     float persistence = 0.5;
     int octaves = 8;
 
-    for(int i = 1; i <= octaves; i++) {
+    for (int i = 1; i <= octaves; i++)
+    {
         float freq = pow(2.f, i);
         float amp = pow(persistence, i);
 
-        total += interpNoise2D(x * freq,
-                               y * freq) * amp;
+        total += interpNoise2D(x * freq, y * freq) * amp;
     }
     return total;
 }
@@ -1163,19 +1150,34 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
-		return vec4(0.619, 1, 0.278, 1);
+        // cave ground moss green
+        vec2 uv = getUVs(point, normal);
+        vec3 base_green = vec3(0.2f, 1.f, 0.1f);
+        vec3 base_purple = vec3(0.2f, 0.1f, 0.3f);
+        // vec2 axis = normalize(uv - vec2(0.5)) * length(floor(point));
+        vec2 axis = normalize(uv - vec2(0.5));
+        float r = interpNoise2D(axis.x, axis.y);
+        vec3 moss_col = mix(base_green, base_purple, 2.f * distance(uv, vec2(0.5)) + r * 0.3f);
+        return vec4(moss_col, 1);
 	}
 	else if (block_type == 13) {
-		return vec4(0.356, 1, 0.101, 1);
+        // cave ground mold blue
+        int side_length = 7;
+        vec2 uv = getUVs(point, normal);
+        ivec2 cell_idx = ivec2(floor(uv * 7));
+        vec3 base_blue = vec3(0.1f, 0.5f, 0.9f);
+        float r = interpNoise2D(float(cell_idx.x), float(cell_idx.y));
+        return vec4(0.2f * r * r, r, 0.3f + r, 1);
 	}
 }
 
 // marches along ray and checks for blocks at locations
 // changed from code given in CIS460
-bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
-	vec3 ray_origin = ray.origin;
-	vec3 curr_cell = vec3(floor(ray.origin));
-	vec3 ray_dir = normalize(ray.direction);
+bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene)
+{
+    vec3 ray_origin = ray.origin;
+    vec3 curr_cell = vec3(floor(ray.origin));
+    vec3 ray_dir = normalize(ray.direction);
 
 	vec3 t2;
 	float curr_t = 0.0;
@@ -1190,101 +1192,112 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene) {
         vec3 pi = ceil(ray_origin) - 0.5;
 
         int block_type = getBlockAt(ceil(ray_origin), scene);
-        if (block_type > 0) {
-        	info.t = curr_t;
+        if (block_type > 0)
+        {
+            info.t = curr_t;
 
-			// normal calculation
-        	vec3 diff = normalize(ray_origin - pi);
-        	vec3 normal = vec3(0, 0, 0);
-        	float max = 0.0;
-        	for (int i = 0; i < 3; i++) {
-        		if (abs(diff[i]) > max) {
-        			max = abs(diff[i]);
-        			normal = vec3(0);
-        			normal[i] = sign(diff[i]) * 1; 
-        		}
-        	}
+            // normal calculation
+            vec3 diff = normalize(ray_origin - pi);
+            vec3 normal = vec3(0, 0, 0);
+            float max = 0.0;
+            for (int i = 0; i < 3; i++)
+            {
+                if (abs(diff[i]) > max)
+                {
+                    max = abs(diff[i]);
+                    normal = vec3(0);
+                    normal[i] = sign(diff[i]) * 1;
+                }
+            }
 
-        	info.normal = normalize(normal);
+            info.normal = normalize(normal);
 
 
         	Material mat;
         	mat.albedo = getColorAt(ray_origin, block_type, normalize(normal));
 			info.mat = convert_old_material(mat);
 
-        	return true;
+            return true;
         }
     }
 
-	return false;
+    return false;
 }
 
-
-bool intersect_probes (
-	 Ray  ray,  /* ray for the intersection */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 ivec3 probeCount,
-	 float sideLength,
-	 out Isect info, /* intersection data */ 
-	 out vec3 probePos,
-	 vec3 field_origin
-	 )
+bool intersect_probes(Ray ray,    /* ray for the intersection */
+                      float mint, /* lower bound for t */
+                      float maxt, /* upper bound for t */
+                      ivec3 probeCount, float sideLength, out Isect info, /* intersection data */
+                      out vec3 probePos, vec3 field_origin)
 {
-	float closest_t = INF;
-	info.t = closest_t;
-	info.pos = vec3(0);
-	info.normal = vec3(0);
-	Isect temp_isect;
+    float closest_t = INF;
+    info.t = closest_t;
+    info.pos = vec3(0);
+    info.normal = vec3(0);
+    Isect temp_isect;
 
-	if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect, probePos, field_origin)) {
-		info = temp_isect;
-		closest_t = info.t;
+    if (implicit_surface(ray, mint, maxt, probeCount, sideLength, temp_isect, probePos,
+                         field_origin))
+    {
+        info = temp_isect;
+        closest_t = info.t;
 
-		info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
-					
-		info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
+        info.normal = closest_t < INF ? normalize(info.normal) : vec3(0);
 
-		info.pos += 0.001 * info.normal;
-	
-		return true;
-	}
-	return false;
+        info.pos = closest_t < INF ? ray.origin + info.t * ray.direction : vec3(0);
+
+        info.pos += 0.001 * info.normal;
+
+        return true;
+    }
+    return false;
 }
 
-vec3 get_light_pos_in_scene(int scene) {
-	vec3 light_pos = vec3(0);
-	if (scene == 0) {
-		light_pos = vec3(4, 17.5, 8.5) /*+ spheres[0].origin*/; // COMMENT THIS OUT TO STOP SPHERER FROM MOVING
-	}
-	if (scene == 1) {
-		light_pos = vec3(0, 8, 13);
-	}
-	if (scene == 2) {
-		light_pos = vec3(5, 9.3, 36.5);
-	}
-	return light_pos;
+Light get_light(int scene, int light_idx)
+{
+    Light null_light = {-1.f, vec3(-1), vec3(-1)};
+    if (scene == 0)
+    {
+        if (light_idx < 0 || light_idx >= num_lights[0]) return null_light;
+        return lights_0[light_idx];
+        // l.pos = vec3(4, 17.5, 8.5) /*+ spheres[0].origin*/; // COMMENT THIS OUT TO STOP SPHERER
+        // FROM MOVING
+    }
+    if (scene == 1)
+    {
+        if (light_idx < 0 || light_idx >= num_lights[1]) return null_light;
+        return lights_1[light_idx];
+    }
+    if (scene == 2)
+    {
+        if (light_idx < 0 || light_idx >= num_lights[2]) return null_light;
+        return lights_2[light_idx];
+    }
+    return null_light;
 }
 
-ivec2 get_text_coord_from_probe_number(int probe_number) {
+ivec2 get_text_coord_from_probe_number(int probe_number)
+{
+    int x_dim = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
 
-	int x_dim = irradiance_field.probe_count.x * irradiance_field.probe_count.z;
+    if (probe_number >= x_dim * irradiance_field.probe_count.y)
+    {
+        return ivec2(-1, -1);
+    }
 
-	if(probe_number >= x_dim * irradiance_field.probe_count.y) {
-		return ivec2(-1, -1);
-	}
+    if (probe_number < 0 || x_dim < 0)
+    {
+        // return ivec2(-1, -1);
+    }
+    ivec2 result = ivec2(-1, -1);
+    result[0] = int(mod(probe_number, x_dim));
+    result[1] = int(floor(probe_number / x_dim));
 
-	if (probe_number < 0 || x_dim < 0) {
-		//return ivec2(-1, -1);
-	}
-	ivec2 result = ivec2(-1, -1);	
-	result[0] = int(mod(probe_number, x_dim));
-	result[1] = int(floor(probe_number / x_dim));
-
-	if (result[1] >= irradiance_field.probe_count.y) {
-		//return ivec2(-1, -1);
-	}
-	return result * irradiance_field.sqrt_rays_per_probe;
+    if (result[1] >= irradiance_field.probe_count.y)
+    {
+        // return ivec2(-1, -1);
+    }
+    return result * irradiance_field.sqrt_rays_per_probe;
 }
 
 vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
@@ -1306,7 +1319,8 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
     // float z = 1 - (2 * sample.x);
     // x  = ((-1 * (z - 1)) / 2) * sqrt_num_rays
-    relative_text_coords[0] =  int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
+    relative_text_coords[0] =
+        int(((-1.0 * (irradiance_dir[2] - 1.0)) / 2.0) * irradiance_field.sqrt_rays_per_probe);
 
     // Account for overflow.
     if(relative_text_coords[0] == irradiance_field.sqrt_rays_per_probe) {
@@ -1316,6 +1330,7 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
     // float x = cos(2* pi * sample.y) * sqrt(1 - (z * z));
     // y = (acos(x / (sqrt(1 - (z * z)))) / (2 * pi)) * sqrt_num_rays
     float sqrt_z = sqrt(1.0 - (irradiance_dir[2] * irradiance_dir[2]));
+
     relative_text_coords[1] = int((acos(irradiance_dir[0] / sqrt_z) / (2.0 * PI)) * irradiance_field.sqrt_rays_per_probe);
 
 	// Once we find the irradiance direction texture coord, add it to the top corner
@@ -1355,179 +1370,203 @@ vec3 sample_probe(int probe_number, vec3 dir, int texture_to_sample) {
 
 bool intersect_scene
 
-	(Ray       ray,  /* ray for the intersection */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info /* intersection data */
-	 )
-	 
+    (Ray ray,       /* ray for the intersection */
+     float mint,    /* lower bound for t */
+     float maxt,    /* upper bound for t */
+     out Isect info /* intersection data */
+    )
+
 {
-	int scene = render_settings.scene; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
-	float closest_t = INF;
-	info.t = closest_t;
-	info.pos = vec3(0);
-	info.normal = vec3(0);
-	Isect temp_isect;
+    int scene = render_settings.scene; /*LOOK SCENE: NEEDED TO CHANGE SCENES*/
+    float closest_t = INF;
+    info.t = closest_t;
+    info.pos = vec3(0);
+    info.normal = vec3(0);
+    Isect temp_isect;
 
-	// inverse transform on the ray, needs to be changed to 3x3/4x4 mat 
-	Ray temp_ray;
-	temp_ray.origin = (ray.origin - get_light_pos_in_scene(scene)) / 0.5;
-	temp_ray.direction = ray.direction / 0.5;
+    /* light intersection tests */
 
-            
-    intersect_sphere(temp_ray, mint, closest_t, temp_isect);
-	if (temp_isect.t<closest_t)
-	{
-		info = temp_isect;
-		Material mat;
-		mat.albedo = vec4(1, 1, 1, 1);
-		info.mat = convert_old_material(mat);
-		info.type = 2; 
-	}
-	closest_t = min(temp_isect.t, closest_t);
+    // inverse transform on the ray, needs to be changed to 3x3/4x4 mat
+    Ray temp_ray;
+    for (int i = 0; i < num_lights[scene]; i++)
+    {
+        temp_ray.origin = (ray.origin - get_light(scene, i).pos) / 0.1;
+        temp_ray.direction = ray.direction / 0.1;
 
-	/* intersect light */
+        intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+        if (temp_isect.t < closest_t)
+        {
+            info = temp_isect;
+            Material mat;
+            info.mat = convert_old_material(mat);
+            info.mat.emissive = get_light(scene, i).col;
+            info.type = 2;
+        }
+        closest_t = min(temp_isect.t, closest_t);
+    }
 
-	if (grid_march(ray, mint, maxt, temp_isect, scene)) {
-		if (temp_isect.t<closest_t)
-		{
-			info = temp_isect;
-			closest_t = info.t;
-			info.type = 3;
-		}
-	}
-	
-	info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
-					
-	info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
+    //temp_ray.origin = (ray.origin - get_light(scene, 0).pos) / 0.5;
+    //temp_ray.direction = ray.direction / 0.5;
 
-	info.pos += 0.001 * info.normal;
-	
-	return closest_t < INF;
-	
+    ////    g(x) = 0, x \in S
+    ////    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
+
+    //intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+    //if (temp_isect.t < closest_t)
+    //{
+    //    info = temp_isect;
+    //    Material mat = materials[0];
+    //    info.mat = convert_old_material(mat);
+    //    info.type = 2;
+    //}
+    //closest_t = min(temp_isect.t, closest_t);
+
+
+    if (grid_march(ray, mint, maxt, temp_isect, scene))
+    {
+        if (temp_isect.t < closest_t)
+        {
+            info = temp_isect;
+            closest_t = info.t;
+            info.type = 3;
+        }
+    }
+
+    // closest_t = min(temp_isect.t, closest_t);
+
+    info.normal = closest_t < INF ? normalize(info.normal) : vec3(0);
+
+    info.pos = closest_t < INF ? ray.origin + info.t * ray.direction : vec3(0);
+
+    info.pos += 0.001 * info.normal;
+
+    return closest_t < INF;
 } /* intersect_scene */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_face
 
-	(Ray       ray,  /* ray for the intersection */
-	 vec3      center,    /* offset of the plane: <o,n>, o: point on plane */
-	 vec3      min_coord,
-	 vec3      max_coord,
-	 vec3      n,    /* normal of the plane (not necessarily unit length) */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
-	
-/*
-	Returns true if there is an intersection with the plane with the 
-	equation: <p,n> = d. The intersection is accepted if it is in 
-	(mint, maxt) along the ray.
-	
-	Also computes the normal along the ray.
-	
-	For the derivation see the appendix.
-*/
-	
-{
-	float denom = dot(ray.direction, n);
-	if (abs(denom) > 0.0001) {
-    	float t = dot((center - ray.origin), n) / denom;
-    	bool isect = mint < t && t < maxt;
-    	return isect;
-    	/*
-    	// if there is an intersection to the plane, we need 
-	    // to see if its inside the face
-		if (isect) {
-			vec3 point = ray.origin + ray.direction * t;
-			for (int i = 0; i < 3; i++) { // check if x y z in bounds
-				if (point[i] < min_coord[i] || point[i] > max_coord[i]) {
-					// oh no it's out of bounds
-					return false;
-				}
-			}
-		}
-		info.t = t;
-		info.normal = normalize(n);
-		info.pos = ray.origin + ray.direction * t;
-	
-		return true;
-		*/
-	}
-	return false;
-	
-} /* intersect_plane */
+    (Ray ray,                                /* ray for the intersection */
+     vec3 center,                            /* offset of the plane: <o,n>, o: point on plane */
+     vec3 min_coord, vec3 max_coord, vec3 n, /* normal of the plane (not necessarily unit length) */
+     float mint,                             /* lower bound for t */
+     float maxt,                             /* upper bound for t */
+     out Isect info)                         /* intersection data */
 
+/*
+        Returns true if there is an intersection with the plane with the
+        equation: <p,n> = d. The intersection is accepted if it is in
+        (mint, maxt) along the ray.
+
+        Also computes the normal along the ray.
+
+        For the derivation see the appendix.
+*/
+
+{
+    float denom = dot(ray.direction, n);
+    if (abs(denom) > 0.0001)
+    {
+        float t = dot((center - ray.origin), n) / denom;
+        bool isect = mint < t && t < maxt;
+        return isect;
+        /*
+        // if there is an intersection to the plane, we need
+            // to see if its inside the face
+                if (isect) {
+                        vec3 point = ray.origin + ray.direction * t;
+                        for (int i = 0; i < 3; i++) { // check if x y z in bounds
+                                if (point[i] < min_coord[i] || point[i] > max_coord[i]) {
+                                        // oh no it's out of bounds
+                                        return false;
+                                }
+                        }
+                }
+                info.t = t;
+                info.normal = normalize(n);
+                info.pos = ray.origin + ray.direction * t;
+
+                return true;
+                */
+    }
+    return false;
+
+} /* intersect_plane */
 
 bool intersect_cube
 
-	(Ray       ray,  /* ray for the intersection */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 vec3      coord,/* BOTTOM LEFT FRONT grid coord of cube */
-	 out Isect info) /* intersection data */
-	 
-{
-	float closest_t = INF;
-	info.t = closest_t;
-	info.pos = vec3(0);
-	info.normal = vec3(0);
-	Isect temp_isect;
+    (Ray ray,        /* ray for the intersection */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     vec3 coord,     /* BOTTOM LEFT FRONT grid coord of cube */
+     out Isect info) /* intersection data */
 
-	// need to test intersection on all faces
-	// front
-	if (intersect_face(ray, vec3(coord.x + 0.5, coord.y + 0.5, coord.z), // point on plane (did middle of face just for consistency)
-							vec3(coord.x, coord.y, coord.z), /* min coord of face) */
-							vec3(coord.x + 1, coord.y + 1, coord.z), /* max coord of face) */
-							vec3(0, 0, 1), //normal,    /* normal of the plane (not necessarily unit length) */
-	 						mint, maxt, temp_isect)) {
-		if (temp_isect.t < closest_t) {
-			info = temp_isect;
-		}
-	}
-	
-	info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
-					
-	info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
-	
-	return closest_t<INF;
-	
+{
+    float closest_t = INF;
+    info.t = closest_t;
+    info.pos = vec3(0);
+    info.normal = vec3(0);
+    Isect temp_isect;
+
+    // need to test intersection on all faces
+    // front
+    if (intersect_face(
+            ray,
+            vec3(coord.x + 0.5, coord.y + 0.5,
+                 coord.z),  // point on plane (did middle of face just for consistency)
+            vec3(coord.x, coord.y, coord.z),         /* min coord of face) */
+            vec3(coord.x + 1, coord.y + 1, coord.z), /* max coord of face) */
+            vec3(0, 0, 1),  // normal,    /* normal of the plane (not necessarily unit length) */
+            mint, maxt, temp_isect))
+    {
+        if (temp_isect.t < closest_t)
+        {
+            info = temp_isect;
+        }
+    }
+
+    info.normal = closest_t < INF ? normalize(info.normal) : vec3(0);
+
+    info.pos = closest_t < INF ? ray.origin + info.t * ray.direction : vec3(0);
+
+    return closest_t < INF;
+
 } /* intersect_cube */
 
 /*--------------------------------------------------------------------------*/
 
 bool intersect_cubes_scene
 
-	(Ray       ray,  /* ray for the intersection */
-	 float     mint, /* lower bound for t */
-	 float     maxt, /* upper bound for t */
-	 out Isect info) /* intersection data */
-	 
-{
-	float closest_t = INF;
-	info.t = closest_t;
-	info.pos = vec3(0);
-	info.normal = vec3(0);
-	Isect temp_isect;
+    (Ray ray,        /* ray for the intersection */
+     float mint,     /* lower bound for t */
+     float maxt,     /* upper bound for t */
+     out Isect info) /* intersection data */
 
-	/* intersect spheres */
-	for (int i = 0; i < spheres.length(); i++)
-	{
-		Sphere sphere = spheres[i];
-		
-		/* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
-		Ray temp_ray;
-		temp_ray.origin = (ray.origin - sphere.origin) / sphere.radius;
-		temp_ray.direction = ray.direction / sphere.radius;
-		
+{
+    float closest_t = INF;
+    info.t = closest_t;
+    info.pos = vec3(0);
+    info.normal = vec3(0);
+    Isect temp_isect;
+
+    /* intersect spheres */
+    for (int i = 0; i < spheres.length(); i++)
+    {
+        Sphere sphere = spheres[i];
+
+        /* inverse transform on the ray, needs to be changed to 3x3/4x4 mat */
+        Ray temp_ray;
+        temp_ray.origin = (ray.origin - sphere.origin) / sphere.radius;
+        temp_ray.direction = ray.direction / sphere.radius;
+
         /*
             g(x) = 0, x \in S
             M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
-            
+
         */
-        
-		//intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+
+        // intersect_sphere(temp_ray, mint, closest_t, temp_isect);
         intersect_sphere(temp_ray, mint, closest_t, temp_isect);
 		if (temp_isect.t<closest_t)
 		{
@@ -1539,128 +1578,130 @@ bool intersect_cubes_scene
 		closest_t = min(temp_isect.t, closest_t);
 	}
 
-	/*
-	if (intersect_cube(ray, mint, maxt, vec3(0, 0, 0), temp_isect)) {
-		if (temp_isect.t < closest_t)
-		{
-			info = temp_isect;
-			Material mat = materials[1];
-			info.mat = convert_old_material(mat);
-			closest_t = temp_isect.t;
-		}
-	} */
-	
-	info.normal = closest_t<INF? normalize(info.normal) : vec3(0);
-					
-	info.pos = closest_t<INF? ray.origin + info.t * ray.direction : vec3(0);
-	
-	return closest_t<INF;
-	
+    /*
+    if (intersect_cube(ray, mint, maxt, vec3(0, 0, 0), temp_isect)) {
+            if (temp_isect.t < closest_t)
+            {
+                    info = temp_isect;
+                    Material mat = materials[1];
+                    info.mat = convert_old_material(mat);
+                    closest_t = temp_isect.t;
+            }
+    } */
+
+    info.normal = closest_t < INF ? normalize(info.normal) : vec3(0);
+
+    info.pos = closest_t < INF ? ray.origin + info.t * ray.direction : vec3(0);
+
+    return closest_t < INF;
+
 } /* intersect_scene */
 
 vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 {
-	vec3 pos = info.pos;
-	vec3 N = normalize(info.normal);
-	V.direction = normalize(V.direction);
+    vec3 pos = info.pos;
+    vec3 N = normalize(info.normal);
+    V.direction = normalize(V.direction);
 
-	// step 1. find the probe index at the bottom left corner of relevant probe cage
-	// this is in probe space (range from [-probe_counts / 2, (probe_counts / 2) - 1 ] (floored))
-	ivec3 base_probe_index = ivec3(floor((pos - irradiance_field.field_origin) / side_length));
+    // step 1. find the probe index at the bottom left corner of relevant probe cage
+    // this is in probe space (range from [-probe_counts / 2, (probe_counts / 2) - 1 ] (floored))
+    ivec3 base_probe_index = ivec3(floor((pos - irradiance_field.field_origin) / side_length));
 
-	for(int i = 0; i < 3; i++) {
-		if(base_probe_index[i] < int(-floor(probe_counts / 2.0)) || base_probe_index[i] > int(floor(probe_counts / 2.0) - 1)) {
-			return vec3(1, 0, 1);
-		}
-	}
+    for (int i = 0; i < 3; i++)
+    {
+        if (base_probe_index[i] < int(-floor(probe_counts / 2.0)) ||
+            base_probe_index[i] > int(floor(probe_counts / 2.0) - 1))
+        {
+            return vec3(1, 0, 1);
+        }
+    }
 
-	vec3 base_probe_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
+    vec3 base_probe_world_pos = (base_probe_index * side_length) + irradiance_field.field_origin;
 
-	vec3 irradiance = vec3(0);
-	float sum_weight = 0.0;
-	vec3 alpha = clamp(((pos - base_probe_world_pos) / side_length), vec3(0), vec3(1));
-	// step 2. loop over 8 probes in cage
-	for(int i = 0; i < 8; i++) {
+    vec3 irradiance = vec3(0);
+    float sum_weight = 0.0;
+    vec3 alpha = clamp(((pos - base_probe_world_pos) / side_length), vec3(0), vec3(1));
+    // step 2. loop over 8 probes in cage
+    for (int i = 0; i < 8; i++)
+    {
         ivec3 offset = ivec3(i >> 2, i >> 1, i) & ivec3(1);
-        ivec3 curr_probe_index = base_probe_index + offset; // in probe index space
+        ivec3 curr_probe_index = base_probe_index + offset;  // in probe index space
 
         // step 3. for each probe, find 1D coordinate from 3D coordinates
         //         this takes the range from [-probe_counts / 2, probe_counts / 2 ] (floored)
         // 		   to [0, probe_counts - 1].
         //		   in this case, [-2, 2] -> [0, 4]
         ivec3 shifted_probe_index = curr_probe_index + ivec3(floor(probe_counts / 2));
-        int probe_index_1d = shifted_probe_index.y * probe_counts.x * probe_counts.z
-        					+ shifted_probe_index.z * probe_counts.x
-        					+ shifted_probe_index.x;
-        if(probe_index_1d < 0 || probe_index_1d >= probe_counts.x * probe_counts.y * probe_counts.z) {
-        	return vec3(1, 0, 1);
+        int probe_index_1d = shifted_probe_index.y * probe_counts.x * probe_counts.z +
+                             shifted_probe_index.z * probe_counts.x + shifted_probe_index.x;
+        if (probe_index_1d < 0 ||
+            probe_index_1d >= probe_counts.x * probe_counts.y * probe_counts.z)
+        {
+            return vec3(1, 0, 1);
         }
 
-        // step 4. before we sample the probe, we need to calculate how much that probe will be weighted.
-
+        // step 4. before we sample the probe, we need to calculate how much that probe will be
+        // weighted.
 
         //===============WEIGHTS CALCulation below===================/
         vec3 trilinear = mix(1.0 - alpha, alpha, offset);
         vec3 probe_pos = base_probe_world_pos + offset * side_length;
         vec3 dir = probe_pos - pos;
-		// smooth backface test
-		// all of these extra constants are supposed to prevent the weight
-		// from going to zero
+        // smooth backface test
+        // all of these extra constants are supposed to prevent the weight
+        // from going to zero
         float temp = max(0.0001, (dot(dir, N) + 1.0) * 0.5);
-		// small addition term is supposed to prevent the weight from going to zero
+        // small addition term is supposed to prevent the weight from going to zero
         float weight = temp * temp + 0.2;
 
-		// moment-visibility test
-		// variance shadow map test
-		// will need another texture to store the mean and teh mean squared
-		// the author also linked a paper for that as well
+        // moment-visibility test
+        // variance shadow map test
+        // will need another texture to store the mean and teh mean squared
+        // the author also linked a paper for that as well
         float isectProbeDist = length(pos - probe_pos);
-		// sample form meanMeanSquared
+        // sample form meanMeanSquared
 
         vec2 mms = sample_probe(probe_index_1d, -dir, 1).rg;
 
         float mean = mms.x;
         float variance = abs(mean * mean - mms.y);
 
-		temp = max(isectProbeDist - mean, 0.0);
+        temp = max(isectProbeDist - mean, 0.0);
         float chebyshevWeight = variance / (variance + temp * temp);
 
         // increase contrast in the weight
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
-		if (!(isectProbeDist <= mean))
+        if (!(isectProbeDist <= mean))
         {
-		//	weight *= chebyshevWeight;
-		}
+            // weight *= chebyshevWeight;
+        }
 
-		// avoid zero weight
+        // avoid zero weight
         weight = max(0.000001, weight);
 
         // amplifies dim lighting contributions to mimic the human visual
-		// system's sensitivity to low light conditions
+        // system's sensitivity to low light conditions
         const float crushThreshold = 0.2;
         if (weight < crushThreshold)
         {
             weight *= weight * weight * (1.f / (crushThreshold * crushThreshold));
         }
         // scale by the trilinear weights
-		// this scales the probe contribution such that probes that are far
-		// away contribute the least
+        // this scales the probe contribution such that probes that are far
+        // away contribute the least
         weight *= trilinear.x * trilinear.y * trilinear.z;
 
         //===============WEIGHTS CALCulation above===================/
 
         // step 5. we have to sample the irradiance at the current probe based on the texture
-        //irradiance += sample_probe(probe_index_1d, N, 0) * weight;
+        // irradiance += sample_probe(probe_index_1d, N, 0) * weight;
         irradiance += weight * sample_probe(probe_index_1d, N, 0);
         sum_weight += weight;
-	}
+    }
 
-	return irradiance / sum_weight;
-	//return irradiance / 8.0;
+    return irradiance / sum_weight;
+    // return irradiance / 8.0;
 }
-
-
-
 
 /*--------------------------------------------------------------------------*/
 
@@ -1675,178 +1716,178 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
 /*--------------------------------------------------------------------------*/
 
 /*
-	Ray-Sphere intersection derivation:
-	
-	1) Ray in parametric form:
-	r(t) = r.o + t*r.d
-	
-	2) Unit sphere centered at (0,0,0) canonical form:
-	||p||^2 = 1^2
-	
-	3) For an intersecting point both 1) and 2) must hold.
-	Substitute:
-	p = r(t) = r.o + t*t.d ->
-	
-	||r.o + t*r.d||^2 = 1 ->
-	
-	||r.d||^2 * t^2 + 2*dot(r.o,r.d) * t + ||r.o||^2 - 1 = 0 ->
-	
-	A = dot(r.d, r.d), B = -dot(r.o,r.d), C = dot(r.o r.o) - 1 ->
-	
-	4) Quadratic equation:
-	A * t^2 - 2*B * t + C = 0
-	
-	D = B*B - A*C, D<=0 -> no intersection
-	(we ignore 1 point intersections since those have measure 0 
-	and are irrelevant in an implementation with finite precision)
-	
-	5) If D>0 there are 2 intersections, we needs the closest 
-	valid one from those. An intersection is valid if t is in (mint, maxt).
-	
-	The INF in the implementation guarantee that when there is 
-	no intersection it will be rejected. It would have been nice if 
-	sqrt(D) produced a NaN when D<0, but unfortunately it is undefined.
+        Ray-Sphere intersection derivation:
+
+        1) Ray in parametric form:
+        r(t) = r.o + t*r.d
+
+        2) Unit sphere centered at (0,0,0) canonical form:
+        ||p||^2 = 1^2
+
+        3) For an intersecting point both 1) and 2) must hold.
+        Substitute:
+        p = r(t) = r.o + t*t.d ->
+
+        ||r.o + t*r.d||^2 = 1 ->
+
+        ||r.d||^2 * t^2 + 2*dot(r.o,r.d) * t + ||r.o||^2 - 1 = 0 ->
+
+        A = dot(r.d, r.d), B = -dot(r.o,r.d), C = dot(r.o r.o) - 1 ->
+
+        4) Quadratic equation:
+        A * t^2 - 2*B * t + C = 0
+
+        D = B*B - A*C, D<=0 -> no intersection
+        (we ignore 1 point intersections since those have measure 0
+        and are irrelevant in an implementation with finite precision)
+
+        5) If D>0 there are 2 intersections, we needs the closest
+        valid one from those. An intersection is valid if t is in (mint, maxt).
+
+        The INF in the implementation guarantee that when there is
+        no intersection it will be rejected. It would have been nice if
+        sqrt(D) produced a NaN when D<0, but unfortunately it is undefined.
 */
 
 /*--------------------------------------------------------------------------*/
 
 /*
 
-	Ray-Plane intersection derivation:
-	
-	1) Ray in parametric form:
-	r(t) = r.o + t*r.d
-	
-	2) Plane in canonical form (cannot derive uv coords from it):
-	dot(p,n) = d, if a point c is known on the plane then d = dot(o,n)
-	
-	n is the normal to the plane (doesn't have to be unit length, but 
-	is preferable returning the correct normal without normalizing).
-	
-	3) For an intersection both 1) and 2) must hold.
-	Substitute:
-	p = r(t) = r.o + t*r.d ->
-	
-	dot(r.o+t*r.d,n) = d -> (using dot product linearity)
-	
-	t*dot(r.d, n) = d - dot(r.o, n) ->
-	
-	t = (d-dot(r.o,n)) / dot(r.d, n)
-	
-	4) The intersection is considered valid if t is in (mint, maxt).
-	If t is NaN or +-Inf this check naturally fails.
+        Ray-Plane intersection derivation:
+
+        1) Ray in parametric form:
+        r(t) = r.o + t*r.d
+
+        2) Plane in canonical form (cannot derive uv coords from it):
+        dot(p,n) = d, if a point c is known on the plane then d = dot(o,n)
+
+        n is the normal to the plane (doesn't have to be unit length, but
+        is preferable returning the correct normal without normalizing).
+
+        3) For an intersection both 1) and 2) must hold.
+        Substitute:
+        p = r(t) = r.o + t*r.d ->
+
+        dot(r.o+t*r.d,n) = d -> (using dot product linearity)
+
+        t*dot(r.d, n) = d - dot(r.o, n) ->
+
+        t = (d-dot(r.o,n)) / dot(r.d, n)
+
+        4) The intersection is considered valid if t is in (mint, maxt).
+        If t is NaN or +-Inf this check naturally fails.
 
 */
 
 /*--------------------------------------------------------------------------*/
 
 /*
-	Ray-Triangle intersection derivation (3x3 matrix form):
-	
-	1) Ray in parametric form:
-	r(t) = r.o + t*r.d
-	
-	2) Triangle in parametric form:
-	S(u,v) = v0 + u*(v1-v0) + v*(v2-v0)
-	
-	v0,v1,v2 are the vertices' coordinates in global coordinates.
-	
-	3) For an intersection both 1) and 2) must hold.
-	Equate:
-	S(u,v) = r(t) ->
-	
-	v0 + u*(v1-v0) + v*(v2-v0) = r.o + t*r.d -> (group unknowns on rhs)
-	
-	-t*r.d + u*(v1-v0) + v*(v2-v0) = r.o - v0
-	
-	3) The above are 3 equations (for x,y,z coords) with 3 unknowns.
-	Rewrite it matrix form for simplicity:
-	
-	A * sol = b, b = r.o - v0, sol = (-t, u, v), A = [r.d | v1-v0 | v2-v0],
-	the input vectors to A are organized as column vectors.
-	
-	4) Formal solution: sol = inv(A) * b
-	t = -sol[0], u = sol[1], v = sol[2]
+        Ray-Triangle intersection derivation (3x3 matrix form):
 
-	5) The intersection is valid, when:
-	t in (mint, maxt) <- intersection with the plane of the triangle
-	0<u and 0<v and u+v<1 <- the point's barycentric coordinates are 
-	within the triangle.
-	
-	The above tests will fail naturally if the matrix is non-invertible 
-	(there is no intersection) since the solution will be made of NaNs/Infs.
-	
+        1) Ray in parametric form:
+        r(t) = r.o + t*r.d
+
+        2) Triangle in parametric form:
+        S(u,v) = v0 + u*(v1-v0) + v*(v2-v0)
+
+        v0,v1,v2 are the vertices' coordinates in global coordinates.
+
+        3) For an intersection both 1) and 2) must hold.
+        Equate:
+        S(u,v) = r(t) ->
+
+        v0 + u*(v1-v0) + v*(v2-v0) = r.o + t*r.d -> (group unknowns on rhs)
+
+        -t*r.d + u*(v1-v0) + v*(v2-v0) = r.o - v0
+
+        3) The above are 3 equations (for x,y,z coords) with 3 unknowns.
+        Rewrite it matrix form for simplicity:
+
+        A * sol = b, b = r.o - v0, sol = (-t, u, v), A = [r.d | v1-v0 | v2-v0],
+        the input vectors to A are organized as column vectors.
+
+        4) Formal solution: sol = inv(A) * b
+        t = -sol[0], u = sol[1], v = sol[2]
+
+        5) The intersection is valid, when:
+        t in (mint, maxt) <- intersection with the plane of the triangle
+        0<u and 0<v and u+v<1 <- the point's barycentric coordinates are
+        within the triangle.
+
+        The above tests will fail naturally if the matrix is non-invertible
+        (there is no intersection) since the solution will be made of NaNs/Infs.
+
 */
 
 /*--------------------------------------------------------------------------*/
 
 /*
-	Ray-Triangle intersection derivation (using the metric tensor):
-	
-	1) Ray in parametric form:
-	r(t) = r.o + t*r.d
-	
-	2) Triangle in parametric form:
-	e0 = v1-v0, e1 = v2-v0
-	S(u,v) = v0 + u*e0 + v*e1
-	
-	v0,v1,v2 are the vertices' coordinates in global coordinates.
-	
-	3) Split the problem into a plane intersection + a subsequent 
-	point-inside-triangle test.
-	
-	The plane in which the triangle lies is defined through the equation:
-	dot(p-v0,n) = 0, n = cross(e0,e1)
-	
-	4) Ray-plane intersection:
-	Substitute:
-	p = r(t) = r.o + t*r.d ->
-	dot(r.o+t*r.d-v0, n) = 0 -> (using linearity)
-	t = dot(v0-r.o, n) / dot(r.d, n)
-	
-	Check t in (mint, maxt) -> fails naturally when 
-	there is no intersection due to NaNs/Infs.
-	
-	5) Point-inside-triangle test. The ray-plane intersection point p 
-	is inside the triangle if:
-	p = S(u,v) is true for some (u,v) such that: 0<u and 0<v and u+v<1
-	The above is the standard condition on the barycentric coordinate.
-	
-	The main issue is that p = S(u,v) is an overdetermined system with 
-	3 equations and 2 unknowns which can result in edge cases. The 
-	system can be reduced to a system of 2 equations.
-	
-	6) Metric tensor system reduction. The equation:
-	p = S(u,v) = v0 + u*e0 + v*e1 can be dotted on both sides 
-	with e0 and e1 ->
-	
-	dot(e0, p-v0) = u*dot(e0,e0) + v*dot(e0,e1)
-	dot(e1, p-v0) = u*dot(e1,e0) + v*dot(e1,e1)
-	
-	This can be rewritten in matrix form:
-	
-	G * sol = b, b = (dot(e0,p-v0), dot(e1,p-v0)), sol = (u,v),
-	
-	    [ dot(e0,e0)   dot(e0,e1) ]
-	G = [                         ] 
-	    [ dot(e1,e0)   dot(e1,e1) ]
-	
-	G is the metric tensor of the basis {e0,e1}.
-	
-	7) System solution.
-	Inversion of a 2x2 matrix is trivial:
-	    [ a   b ]             [ d  -b ]
-	A = [       ] -> inv(A) = [       ] * 1/(a*d-b*c)
-	    [ c   d ]             [-c   a ]
-		
-	The solution is given as:
-	sol = inv(G) * b, inv(G) is the contravariant metric tensor.
-	
-	7) If the matrix is non-invertible, then either e0=0 or e1 = 0
-	or e0 and e1 are parallel, in which case the determinant is 0
-	and results in NaNs/Infs, and the check 0<u && 0<v && u+v<1 
-	naturally fails.
-	
+        Ray-Triangle intersection derivation (using the metric tensor):
+
+        1) Ray in parametric form:
+        r(t) = r.o + t*r.d
+
+        2) Triangle in parametric form:
+        e0 = v1-v0, e1 = v2-v0
+        S(u,v) = v0 + u*e0 + v*e1
+
+        v0,v1,v2 are the vertices' coordinates in global coordinates.
+
+        3) Split the problem into a plane intersection + a subsequent
+        point-inside-triangle test.
+
+        The plane in which the triangle lies is defined through the equation:
+        dot(p-v0,n) = 0, n = cross(e0,e1)
+
+        4) Ray-plane intersection:
+        Substitute:
+        p = r(t) = r.o + t*r.d ->
+        dot(r.o+t*r.d-v0, n) = 0 -> (using linearity)
+        t = dot(v0-r.o, n) / dot(r.d, n)
+
+        Check t in (mint, maxt) -> fails naturally when
+        there is no intersection due to NaNs/Infs.
+
+        5) Point-inside-triangle test. The ray-plane intersection point p
+        is inside the triangle if:
+        p = S(u,v) is true for some (u,v) such that: 0<u and 0<v and u+v<1
+        The above is the standard condition on the barycentric coordinate.
+
+        The main issue is that p = S(u,v) is an overdetermined system with
+        3 equations and 2 unknowns which can result in edge cases. The
+        system can be reduced to a system of 2 equations.
+
+        6) Metric tensor system reduction. The equation:
+        p = S(u,v) = v0 + u*e0 + v*e1 can be dotted on both sides
+        with e0 and e1 ->
+
+        dot(e0, p-v0) = u*dot(e0,e0) + v*dot(e0,e1)
+        dot(e1, p-v0) = u*dot(e1,e0) + v*dot(e1,e1)
+
+        This can be rewritten in matrix form:
+
+        G * sol = b, b = (dot(e0,p-v0), dot(e1,p-v0)), sol = (u,v),
+
+            [ dot(e0,e0)   dot(e0,e1) ]
+        G = [                         ]
+            [ dot(e1,e0)   dot(e1,e1) ]
+
+        G is the metric tensor of the basis {e0,e1}.
+
+        7) System solution.
+        Inversion of a 2x2 matrix is trivial:
+            [ a   b ]             [ d  -b ]
+        A = [       ] -> inv(A) = [       ] * 1/(a*d-b*c)
+            [ c   d ]             [-c   a ]
+
+        The solution is given as:
+        sol = inv(G) * b, inv(G) is the contravariant metric tensor.
+
+        7) If the matrix is non-invertible, then either e0=0 or e1 = 0
+        or e0 and e1 are parallel, in which case the determinant is 0
+        and results in NaNs/Infs, and the check 0<u && 0<v && u+v<1
+        naturally fails.
+
 */
 
 /*--------------------------------------------------------------------------*/
@@ -1884,7 +1925,6 @@ bool intersect_spheres(Ray ray, inout Record record)
     }
     return lowest > 0;
 }
-
 
 /*bool intersect_triangles(Ray ray, inout Record record)
 {
@@ -1924,8 +1964,10 @@ bool intersect_spheres(Ray ray, inout Record record)
                 record.mat = materials[int(triangle.mat_id.x)];
                 record.albedo = materials[int(triangle.mat_id.x)].albedo.xyz;
                 record.emission = materials[int(triangle.mat_id).x].emission.xyz;
-                //            rec.u = tuv.y * vertices[1].u + tuv.z * vertices[2].u + (1.0f - tuv.y - tuv.z) * vertices[0].u;
-                //            rec.v = tuv.y * vertices[1].v + tuv.z * vertices[2].v + (1.0f - tuv.y - tuv.z) * vertices[0].v;
+                //            rec.u = tuv.y * vertices[1].u + tuv.z * vertices[2].u + (1.0f - tuv.y
+- tuv.z) * vertices[0].u;
+                //            rec.v = tuv.y * vertices[1].v + tuv.z * vertices[2].v + (1.0f - tuv.y
+- tuv.z) * vertices[0].v;
             }
         }
     }

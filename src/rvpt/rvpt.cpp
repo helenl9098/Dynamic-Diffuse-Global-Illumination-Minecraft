@@ -305,11 +305,11 @@ bool RVPT::update()
     per_frame_data[current_frame_index].raytrace_work_fence.wait();
     per_frame_data[current_frame_index].raytrace_work_fence.reset();
 
+    float delta = static_cast<float>(time.since_last_frame());
+    render_settings.time += 10;
     per_frame_data[current_frame_index].settings_uniform.copy_to(render_settings);
     per_frame_data[current_frame_index].random_buffer.copy_to(random_numbers);
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
-
-    float delta = static_cast<float>(time.since_last_frame());
 
     per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
