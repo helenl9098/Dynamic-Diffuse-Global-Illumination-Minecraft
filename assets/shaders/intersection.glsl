@@ -1072,33 +1072,39 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(0.95, 0.95, 0.95, 1);
 	}
 	else if (block_type == 6) {
-		// cyan white spots
-		vec3 cyan = vec3(0.1, 1.0, 1.0);
+		vec3 orange = vec3(1.0, 0.5, 0.0);
 		float w = worleyNoise(point.xz);
 		if(w < 0.35) {
-			return vec4(1 - (w * (vec3(1) - cyan)), 1);
+			return vec4(1 - (w * (vec3(1) - orange)), 1);
 		}
-		return vec4(cyan, 1);
+		return vec4(orange, 1);
 	}
 	else if (block_type == 7) {
 		// dark blue cyan spots
-		vec3 dark_blue = vec3(0.1, 0.3, 1.0);
-		vec3 cyan = vec3(0.3, 0.9, 0.9);
+		vec3 dark_orange = vec3(0.6, 0.3, 0.1);
+		vec3 green = vec3(0.3, 0.9, 0.0);
 		float w = worleyNoise(point.xz + vec2(5));
 		if(w < 0.25) {
-			return vec4(cyan - (w * (vec3(0.5) - cyan)), 1);
+			return vec4(green - (w * (vec3(0.5) - green)), 1);
 		}
-		return vec4(dark_blue, 1);
+		return vec4(dark_orange, 1);
 	}
 	else if (block_type == 8) {
 		// greenish-blue cyan spots
-		vec3 green_blue = vec3(0.0, 1.0, 0.5);
-		vec3 cyan = vec3(0.3, 0.9, 0.9);
-		float w = worleyNoise(point.xz);
-		if(w < 0.25) {
-			return vec4(cyan - (w * (vec3(0.5) - cyan)), 1);
-		}
-		return vec4(green_blue, 1);
+		vec3 light_orange = vec3(0.8, 0.8, 0.3);
+		vec3 dark_purple = vec3(0.3, 0.1, 0.6);
+
+		//mushroom dots 
+		vec3 fragColor = vec3(0.070, 0.137, 0.670);
+		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
+        float radius = 0.05;
+    	float dist = dotsPattern(uv, radius, 1.8);
+    	vec3 dotcolor = dark_purple;
+    	vec3 bg = light_orange;
+    	float circle = (radius - dist) * 100.0;
+    	float alpha = clamp(circle, 0.0, 1.0);
+    	vec3 color = mix(bg, dotcolor, alpha);
+    	return vec4(color, 1);
 	}
 	else if (block_type == 9) {
 		vec2 uvs = getUVs(point, normal);
@@ -1154,16 +1160,6 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		//if (r < 0.5) {
 			combined = mix(combined, vec3(0.639, 0.176, 0.725), r / 2.0);
 		//}
-		/** mushroom dots 
-		vec3 fragColor = vec3(0.070, 0.137, 0.670);
-		vec2 uv = mat2(0.707, -0.707, 0.707, 0.707) * getUVs(point, normal);
-        float radius = 0.05;
-    	float dist = dotsPattern(uv, radius, 1.8);
-    	vec3 dotcolor = vec3(0.349, 0.133, 0.427);
-    	vec3 bg = fragColor;
-    	float circle = (radius - dist) * 100.0;
-    	float alpha = clamp(circle, 0.0, 1.0);
-    	vec3 color = mix(bg, dotcolor, alpha); **/
 		return vec4(combined, 1);
 	}
 	else if (block_type == 12) {
