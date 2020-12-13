@@ -473,7 +473,6 @@ float opRep(in vec3 p, in vec3 c)
 float opRepLim( in vec3 p, in float c, in vec3 l, out vec3 probePos)
 {
 	vec3 probeOrigin = c*clamp(round(p/c),-l,l);
-	//probeOrigin += field_origin;
 	
 	probePos = probeOrigin;
 	
@@ -720,18 +719,10 @@ int all_mushrooms(vec3 coords) {
 	if (coords.x < 0 && coords.z > 0) {
 		if (coords.x < -16) {
 			if (coords.z > 20) {
-				int check = tiny_mushroom(coords - vec3(-19, -12, 22));
-		  		if (check != 0) {
-					return check;
-				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-19, -12, 22));
 			}
 			if (coords.z < 4) {
-				int check = tiny_mushroom(coords - vec3(-18, -12, 2));
-		  		if (check != 0) {
-					return check;
-				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-18, -12, 2));
 			}
 			int check = large_mushroom(coords - vec3(-22, 3, 8), -1);
 		  	if (check != 0) {
@@ -745,81 +736,51 @@ int all_mushrooms(vec3 coords) {
 		}
 		else {
 			if (coords.z > 10 && coords.x > -6) {
-				int check = tiny_mushroom(coords - vec3(-4, -14, 12));
-		  		if (check != 0) {
-					return check;
-				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-4, -14, 12));
 			}
 			if (coords.z < 14) {
-				int check = medium_mushroom(coords - vec3(-4, -1, 6));
-				if (check != 0) {
-					return check;
-				}
-				return 0;
+				return medium_mushroom(coords - vec3(-4, -1, 6));
 			}
-			int check = small_mushroom(coords - vec3(-10, -8, 18));
-			if (check != 0) {
-				return check;
-			}
-			return 0;
+			return small_mushroom(coords - vec3(-10, -8, 18));
 		}
 	}
 	if (coords.x < 0 && coords.z < 0) {
 		if (coords.x < -16) {
-			if (coords.z > -10) {
-				int check = small_mushroom(coords - vec3(-25, -7, -4));
-				if (check != 0) {
-					return check;
+			if (coords.x < -28) {
+				if (coords.z < -16) {
+					return tiny_mushroom(coords - vec3(-32, -14, -20));
 				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-30, -12, -12));
 			}
-			int check = medium_mushroom(coords - vec3(-20, -3, -20));
-			if (check != 0) {
-				return check;
+			if (coords.z > -10) {
+				return small_mushroom(coords - vec3(-25, -7, -4));
 			}
-			return 0;
+			return medium_mushroom(coords - vec3(-20, -3, -20));
 		} else {
 			if (coords.x < -12 && coords.z > -12) {
-				int check = tiny_mushroom(coords - vec3(-14, -15, -10));
-		  		if (check != 0) {
-					return check;
-				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-14, -15, -10));
 			}
 			if (coords.z > -10 && coords.x > -4) {
-				int check = tiny_mushroom(coords - vec3(-2, -12, -2));
-		  		if (check != 0) {
-					return check;
-				}
-				return 0;
+				return tiny_mushroom(coords - vec3(-2, -12, -2));
 			}
 			if (coords.z < -10) {
-				int check = small_mushroom(coords - vec3(-5, -9, -14));
-				if (check != 0) {
-					return check;
-				}
-				return 0;
+				return small_mushroom(coords - vec3(-5, -9, -14));
 			}
-			int check = large_mushroom(coords - vec3(-8, 8, -6), 1);
-		  	if (check != 0) {
-				return check;
-			}
-			return 0;
+			return large_mushroom(coords - vec3(-8, 8, -6), 1);
 		}
 	}
 	if (coords.x > 0 && coords.z < 0) { 
-		int check = medium_mushroom(coords - vec3(10, -6, -10));
-		if (check != 0) {
-			return check;
+		if (coords.z > -5) {
+			return tiny_mushroom(coords - vec3(6, -14, -3));
 		}
-		return 0;
-
+		if (coords.z < -14) {
+			if (coords.x > 18) {
+				return tiny_mushroom(coords - vec3(20, -7, -16));
+			}
+			return large_mushroom(coords - vec3(14, 10, -20), -1);
+		}
+		return medium_mushroom(coords - vec3(6, -6, -10));
 	}
-	if (coords.x > 0 && coords.z > 0) { 
-
-	}
-
 	return 0;
 }
 
@@ -832,42 +793,50 @@ int getBlockAt(vec3 coords, int scene) {
 	3. GREEN
 	4. BLUE
 	5. WHITE
+	6. MUSHROOM BLOCK 1
+	7. MUSHROOM BLOCK 2
+	8. MUSHROOM BLOCK 3
+	9. MUSHROOM STEM
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
+	11. CAVE GROUND (RED)
+	12. CAVE GROUND MOSS (GREEN)
+	13. CAVE GROUND MOLD (BLUE)
 	*/
 
 	// TO DO: STUB FOR Now
 
 	if (scene == 0) {// THIS IS THE CAVE
 
-		//irradiance field check
-		/*
-		ivec3 probe_count = ivec3(floor(irradiance_field.probe_count / 2.0));
-		vec3 distance = probe_count * irradiance_field.side_length; 
-		for (int i = 0; i < 3; i++) {
-			if (coords[i] < -1.0 * distance[i] || coords[i] > distance[i]) {
-				return 0;
-			}
-		} */
-
 		if (coords.y > 17.0) {
 			return 0;
 		}
 
 		if (coords.y < -15) {
-			float r = fbm(coords.x * 0.05, coords.z * 0.05);
-			int d = int(floor(r * 5.0));
-			if (-20 + d >= coords.y) {
-				return 1;
+			float r = fbm(coords.x * 0.058, coords.z * 0.058);
+			int d = int(floor(r * 5.0)); 
+			if (-21 + d >= coords.y) {
+				if (coords.y == -18) {
+					return 13;
+				}
+				return 11;
 			}
 		}
+
+		if (coords.y < -18) {
+			float r = fbm(coords.x * 0.3, coords.z * 0.3);
+			int d = int(floor(r * 2.0));
+			if (d == 0) {
+				return 12;
+			}
+		}
+
 		if (sdSphere(coords, 20.0) > 0.0) {
 			if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
 				if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
 					if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
-						//if (sdSphere(coords + vec3(-18, -10, 24), 10.0) > 0.0) {
 							if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
-									return 1;
+									return 10;
 							}
-						//}
 					}
 				}
 			}
@@ -877,17 +846,6 @@ int getBlockAt(vec3 coords, int scene) {
 		if (all_mushroom != 0) {
 			return all_mushroom;
 		}
-
-		/*
-		vec3 offset = vec3(4, -6, 4);
-		if (sdCappedCone(coords - offset, 3, 4, 2) < 0.0) {
-				return 3;
-		}
-		if (coords.x - offset.x == 0 &&
-			coords.z - offset.z == 0 &&
-			coords.y - offset.y < 0) {
-			return 5;
-		} */
 
 		return 0;
 	}
@@ -1007,6 +965,14 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	3. GREEN
 	4. BLUE
 	5. WHITE
+	6. MUSHROOM BLOCK 1
+	7. MUSHROOM BLOCK 2
+	8. MUSHROOM BLOCK 3
+	9. MUSHROOM STEM
+	10. CAVE WALL --> TAKE IN POINT'S Y VALUE (HELEN)
+	11. CAVE GROUND (RED)
+	12. CAVE GROUND MOSS (GREEN)
+	13. CAVE GROUND MOLD (BLUE)
 	*/
  	if (block_type == 1) {
 		float r = (random1(ceil(point)) / 4) + 0.1; // range of 0.3 to 0.8
@@ -1044,6 +1010,7 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	else if (block_type == 6) {
 		// blue purple
 		return vec4(0.529, 0.454, 0.686, 1);
+		//return vec4(getUVs(point, normal), 1, 1);
 	}
 	else if (block_type == 7) {
 		// pink
@@ -1052,6 +1019,21 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	else if (block_type == 8) {
 		// whiteish blue
 		return vec4(0.709, 0.705, 0.935, 1);
+	}
+	else if (block_type == 9) {
+		return vec4(1, 1, 1, 1);
+	}
+	else if (block_type == 10) {
+		return vec4(1, 0.5, 0, 1);
+	}
+	else if (block_type == 11) {
+		return vec4(1, 0, 0, 1);
+	}
+	else if (block_type == 12) {
+		return vec4(0, 1, 0, 1);
+	}
+	else if (block_type == 13) {
+		return vec4(0, 0, 1, 1);
 	}
 }
 

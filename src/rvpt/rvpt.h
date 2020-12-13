@@ -88,7 +88,7 @@ public:
         int side_length = 11.0;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
         int sqrt_rays_per_probe = 16;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 0);
+        alignas(16) glm::vec3 field_origin = glm::vec3(1.4, 0, 1);
         bool visualize = true;
     };
 
