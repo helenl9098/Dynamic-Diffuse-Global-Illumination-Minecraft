@@ -30,8 +30,7 @@ layout(binding = 2, rgba8) uniform image2D probe_image_albedo;
 layout(binding = 3, rgba8) uniform image2D probe_image_distances;
 
 layout(std430, binding = 4) buffer Spheres { Sphere spheres[]; };
-layout(std430, binding = 5) buffer Materials { Material materials[]; };
-layout(binding = 6) uniform IrradianceField
+layout(binding = 5) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
