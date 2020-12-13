@@ -886,19 +886,19 @@ Light get_light(int scene, int light_idx)
     Light null_light = {-1.f, vec3(-1), vec3(-1)};
     if (scene == 0)
     {
-        if (light_idx < 0 || light_idx >= num_lights_0) return null_light;
+        if (light_idx < 0 || light_idx >= num_lights[0]) return null_light;
         return lights_0[light_idx];
         // l.pos = vec3(4, 17.5, 8.5) /*+ spheres[0].origin*/; // COMMENT THIS OUT TO STOP SPHERER
         // FROM MOVING
     }
     if (scene == 1)
     {
-        if (light_idx < 0 || light_idx >= num_lights_1) return null_light;
+        if (light_idx < 0 || light_idx >= num_lights[1]) return null_light;
         return lights_1[light_idx];
     }
     if (scene == 2)
     {
-        if (light_idx < 0 || light_idx >= num_lights_2) return null_light;
+        if (light_idx < 0 || light_idx >= num_lights[2]) return null_light;
         return lights_2[light_idx];
     }
     return null_light;
@@ -1030,31 +1030,42 @@ bool intersect_scene
     info.normal = vec3(0);
     Isect temp_isect;
 
-    /* intersect spheres */
-    // for (int i = 0; i < spheres.length(); i++)
-    //{
-    // Sphere sphere = spheres[i];
+    /* light intersection tests */
 
     // inverse transform on the ray, needs to be changed to 3x3/4x4 mat
     Ray temp_ray;
-    temp_ray.origin = (ray.origin - get_light(scene, 0).pos) / 0.5;
-    temp_ray.direction = ray.direction / 0.5;
-
-    //    g(x) = 0, x \in S
-    //    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
-
-    intersect_sphere(temp_ray, mint, closest_t, temp_isect);
-    if (temp_isect.t < closest_t)
+    for (int i = 0; i < num_lights[scene]; i++)
     {
-        info = temp_isect;
-        Material mat = materials[0];
-        info.mat = convert_old_material(mat);
-        info.type = 2;
-    }
-    closest_t = min(temp_isect.t, closest_t);
-    //}
+        temp_ray.origin = (ray.origin - get_light(scene, i).pos) / 0.5;
+        temp_ray.direction = ray.direction / 0.5;
 
-    /* intersect light */
+        intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+        if (temp_isect.t < closest_t)
+        {
+            info = temp_isect;
+            Material mat = materials[0];
+            info.mat = convert_old_material(mat);
+            info.type = 2;
+        }
+        closest_t = min(temp_isect.t, closest_t);
+    }
+
+    //temp_ray.origin = (ray.origin - get_light(scene, 0).pos) / 0.5;
+    //temp_ray.direction = ray.direction / 0.5;
+
+    ////    g(x) = 0, x \in S
+    ////    M(x) \in M(S) -> g(M^{-1}(x)) = 0 -> x \in S
+
+    //intersect_sphere(temp_ray, mint, closest_t, temp_isect);
+    //if (temp_isect.t < closest_t)
+    //{
+    //    info = temp_isect;
+    //    Material mat = materials[0];
+    //    info.mat = convert_old_material(mat);
+    //    info.type = 2;
+    //}
+    //closest_t = min(temp_isect.t, closest_t);
+
 
     if (grid_march(ray, mint, maxt, temp_isect, scene))
     {
@@ -1307,7 +1318,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
         if (!(isectProbeDist <= mean))
         {
-            //	weight *= chebyshevWeight;
+            // weight *= chebyshevWeight;
         }
 
         // avoid zero weight

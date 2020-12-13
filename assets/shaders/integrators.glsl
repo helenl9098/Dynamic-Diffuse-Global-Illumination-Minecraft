@@ -73,32 +73,57 @@ vec3 integrator_DDGI
     vec3 indirectLighting = get_diffuse_gi(info, probe_counts, side_length, ray);
 
     // this is just a hack so the light feeler ray can be calculated by the get intersection
-
+    vec3 direct_lighting = vec3(0.f);
+    int num_visible_lights = 0;
     for (int i = 0; i < num_lights[render_settings.scene]; i++)
     {
-        break;
+        Light l = get_light(render_settings.scene, i);
+        Ray light_feeler = Ray(info.pos, normalize(l.pos - info.pos));
+        if (intersect_scene(light_feeler, mint, maxt, temp_info))
+        {
+            if (temp_info.type == 2)
+            {
+                float lambert =
+                    clamp(dot(normalize(info.normal),
+                              normalize(l.pos - info.pos)),
+                          0.0, 1.0);
+                float dist = distance(l.pos, info.pos);
+                direct_lighting += lambert * l.col * l.intensity / (dist);
+                num_visible_lights++;
+            }
+        }
     }
 
-        Ray light_feeler =
-            Ray(info.pos, normalize(get_light(render_settings.scene, 0).pos - info.pos));
-    if (intersect_scene(light_feeler, mint, maxt, temp_info))
+    if (num_visible_lights != 0)
     {
-        if (temp_info.type == 2)
-        {
-            float lambert =
-                clamp(dot(normalize(info.normal),
-                          normalize(get_light(render_settings.scene, 0).pos - info.pos)),
-                      0.0, 1.0);
-            return 0.5 * info.mat.base_color * lambert +
-                   0.5 * info.mat.base_color * indirectLighting;
-        }
-        else
-        {
-            return indirectLighting * info.mat.base_color;
-        }
-    }
+        // return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights));
 
-    return col;
+        return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights)) +
+               0.5 * info.mat.base_color * indirectLighting;
+    }
+    return 0.5 * indirectLighting * info.mat.base_color;
+
+
+    //    Ray light_feeler =
+    //        Ray(info.pos, normalize(get_light(render_settings.scene, 0).pos - info.pos));
+    //if (intersect_scene(light_feeler, mint, maxt, temp_info))
+    //{
+    //    if (temp_info.type == 2)
+    //    {
+    //        float lambert =
+    //            clamp(dot(normalize(info.normal),
+    //                      normalize(get_light(render_settings.scene, 0).pos - info.pos)),
+    //                  0.0, 1.0);
+    //        return 0.5 * info.mat.base_color * lambert +
+    //               0.5 * info.mat.base_color * indirectLighting;
+    //    }
+    //    else
+    //    {
+    //        return indirectLighting * info.mat.base_color;
+    //    }
+    //}
+
+    //return col;
 
 } /* integrator_DDGI */
 

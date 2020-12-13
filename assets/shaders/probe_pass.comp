@@ -179,21 +179,62 @@ vec3 calculate_random_dir_hemisphere(vec3 normal) {
         + sin(around) * over * perpendicularDirection2;
 }
 
-vec3 get_direct_lighting(Isect info, vec3 light_vec) {
-	Ray light_feeler = Ray(info.pos, light_vec);
-	Isect temp_info;
-	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
-		float lambert = clamp(dot(normalize(info.normal),
-                                  normalize(get_light(render_settings.scene, 0).pos - info.pos)),
-                                  0.0, 1.0);
-		if (temp_info.type == 2) {
-            return info.mat.base_color * lambert;
-	    } else {
-	        return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
-	    }
-	}
+vec3 get_direct_lighting(Isect info) {
+
+
+	vec3 direct_lighting = vec3(0.f);
+    int num_visible_lights = 0;
+	bool hit_scene = false;
+    for (int i = 0; i < num_lights[render_settings.scene]; i++)
+    {
+        Light l = get_light(render_settings.scene, i);
+        Ray light_feeler = Ray(info.pos, normalize(l.pos - info.pos));
+		Isect temp_info;
+        if (intersect_scene(light_feeler, 0, INF, temp_info))
+        {
+			hit_scene = true;
+			float lambert =
+                    clamp(dot(normalize(info.normal),
+                              normalize(l.pos - info.pos)),
+                          0.0, 1.0);
+            if (temp_info.type == 2)
+            {
+				float dist = distance(l.pos, info.pos);
+                direct_lighting += lambert * l.col * l.intensity / (dist);
+            } else {
+				return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
+			}
+			num_visible_lights++;
+        }
+    }
+
+	if (num_visible_lights != 0)
+    {
+        return info.mat.base_color * direct_lighting / num_visible_lights;
+    }
+	// if (hit_scene)
+	// {
+    // return 0.2 * info.mat.base_color * lambert;
+	// }
 
 	return vec3(0, 0, 0);
+
+
+
+	// Ray light_feeler = Ray(info.pos, light_vec);
+	// Isect temp_info;
+	// if (intersect_scene(light_feeler, 0, INF, temp_info)) {
+	// 	float lambert = clamp(dot(normalize(info.normal),
+    //                               normalize(get_light(render_settings.scene, 0).pos - info.pos)),
+    //                               0.0, 1.0);
+	// 	if (temp_info.type == 2) {
+    //         return info.mat.base_color * lambert;
+	//     } else {
+	//         return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
+	//     }
+	// }
+	// 
+	// return vec3(0, 0, 0);
 }
 
 void main() {
@@ -227,8 +268,7 @@ void main() {
 	Ray indirect_ray = r;
 	for(int i = 0; i < render_settings.max_bounces; i++) {
 		if (intersect_scene(indirect_ray, 0, INF, hit_info)) {
-			light_vec = normalize(get_light(render_settings.scene, 0).pos - hit_info.pos);
-			vec3 indirect_color_contribution = get_direct_lighting(hit_info, light_vec);
+			vec3 indirect_color_contribution = get_direct_lighting(hit_info);
 			color += indirect_color_contribution;
 		} else {
 			break;
