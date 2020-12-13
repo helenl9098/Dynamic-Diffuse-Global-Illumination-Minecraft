@@ -192,6 +192,7 @@ bool RVPT::update()
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 
     float delta = static_cast<float>(time.since_last_frame());
+    render_settings.time += delta;
 
     per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
     per_frame_data[current_frame_index].material_buffer.copy_to(materials);

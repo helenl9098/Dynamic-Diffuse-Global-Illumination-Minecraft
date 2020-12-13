@@ -78,6 +78,7 @@ public:
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
+        alignas(4) float time = 0.f;
     } render_settings;
 	
     struct IrradianceField

@@ -20,6 +20,7 @@ layout(binding = 0) uniform RenderSettings
     int camera_mode;
     int render_mode;
     int scene;
+	float time;
 }
 render_settings;
 

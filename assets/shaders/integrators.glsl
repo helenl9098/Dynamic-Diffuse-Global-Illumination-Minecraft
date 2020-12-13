@@ -96,11 +96,12 @@ vec3 integrator_DDGI
 
     if (num_visible_lights != 0)
     {
-        // return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights));
+        return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights));
 
         return 0.5 * info.mat.base_color * (direct_lighting / float(num_visible_lights)) +
                0.5 * info.mat.base_color * indirectLighting;
     }
+    return vec3(0.f);
     return 0.5 * indirectLighting * info.mat.base_color;
 
 
