@@ -72,9 +72,11 @@ public:
 
     struct RenderSettings
     {
-        alignas(4) int screen_width = 1600;
-        alignas(4) int screen_height = 900;
-        alignas(4) int max_bounces = 3;
+        alignas(4) int screen_width = 80;
+        alignas(4) int screen_height = 45;
+        // alignas(4) int screen_width = 1600;
+        // alignas(4) int screen_height = 900;
+        alignas(4) int max_bounces = 2;
         alignas(4) int camera_mode = 0;
         alignas(4) int render_mode = 0;
         alignas(4) int scene = 0;
@@ -84,11 +86,11 @@ public:
 	
     struct IrradianceField
     {
-        alignas(16) glm::ivec3 probe_count = glm::ivec3(5, 5, 5); // number of probes in x, y, z directions
+        alignas(16) glm::ivec3 probe_count = glm::ivec3(3, 3, 3); // number of probes in x, y, z directions
         int side_length = 6;                      // side length of the cubes that encase the probe
         float hysteresis = 0.9f;                     // blending coefficient
         // int sqrt_rays_per_probe = 20;                // sqrt of the number of rays per probe. for some reason it only works with even numbers; can debug later
-        int sqrt_rays_per_probe = 20;
+        int sqrt_rays_per_probe = 15;
         alignas(16) glm::vec3 field_origin = glm::vec3(0, 0, 15);
 
     };
