@@ -104,9 +104,6 @@ int main()
     // Setup Demo Scene
     rvpt.generate_probe_rays();
 
-    rvpt.add_sphere(Sphere(glm::vec3(0, 0, 0), 0.f, 0));
-
-
 
     bool rvpt_init_ret = rvpt.initialize();
     if (!rvpt_init_ret)
