@@ -109,6 +109,14 @@ Once we were sure that our program worked with a single, static light we added s
 | ---------------------------------- | ------------------------------- |
 | Indirect and direct lighting with dynamic lights. | Indirect lighting with dynamic lights. |
 
+| ![](img/cave_1light.gif)   |
+| ---------------------------------- |
+| Dynamic lighting in cave scene with a single light. |
+
+| ![](img/cave_2light.gif)   |
+| ---------------------------------- |
+| Dynamic lighting in cave scene with two lights. |
+
 ## Results
 
 ![](img/final_ddgi.png)
