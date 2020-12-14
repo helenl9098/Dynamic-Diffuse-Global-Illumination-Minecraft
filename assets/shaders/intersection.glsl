@@ -1381,7 +1381,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         chebyshevWeight = max(pow(chebyshevWeight, 3), 0.0);
         if (!(isectProbeDist <= mean))
         {
-            // weight *= chebyshevWeight;
+            //weight *= chebyshevWeight;
         }
 
         // avoid zero weight
@@ -1402,13 +1402,12 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         //===============WEIGHTS CALCulation above===================/
 
         // step 5. we have to sample the irradiance at the current probe based on the texture
-        weight = 1.f;
         irradiance += weight * sample_probe(probe_index_1d, N, 0);
         sum_weight += weight;
     }
 
-    // return irradiance / sum_weight;
-    return irradiance / 8.0;
+    return irradiance / sum_weight;
+    //return irradiance / 8.0;
 }
 
 /*--------------------------------------------------------------------------*/
