@@ -62,5 +62,3 @@ Once the probe cage has been determined, we iterate over every probe in the cage
 *To be updated when the project is finished.*
 
 ## Performance Analysis
-
-*To be updated when the project is finished.*
