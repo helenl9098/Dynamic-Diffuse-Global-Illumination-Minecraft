@@ -973,7 +973,6 @@ void RVPT::add_per_frame_data(int index)
                           "probe_command_buffer_" + std::to_string(index));
     auto probe_work_fence = VK::Fence(vk_device, "probe_work_fence_" + std::to_string(index));
 
-	// S_CHANGED
     auto irradiance_field_uniform =
         VK::Buffer(vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(IrradianceField), VK::MemoryUsage::cpu_to_gpu);
@@ -1005,7 +1004,6 @@ void RVPT::add_per_frame_data(int index)
         std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-    // S_CHANGED
     raytracing_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
