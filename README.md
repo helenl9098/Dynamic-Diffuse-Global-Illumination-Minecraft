@@ -103,6 +103,15 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 
 ## Results
 
+![](img/final_ddgi.png)
+
+To achieve the image above, we combined our direct lighting and indirecting results, which are both shown below.
+
+| ![](img/final_direct.png)   | ![](img/final_indirect.png)   |
+| ---------------------------------- | ------------------------------- |
+| Direct Lighting Only. Here we see pitch black hard shadows that are not illuminated at all. | Indirect Lighting Only. Here we see the global illumination we were able to estimate using the probes, reflecting color into otherwise pitch-black shadow areas of the scene. |
+
+
 ![](/img/coverimage1.png)
 
 ![](/img/results_example_1.png)
@@ -114,6 +123,8 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 ![](/img/cornell_box_whole.png)
 
 ![](/img/GI_cornell_breakdown.png)
+
+![](/img/ui.png) We also have a UI window where you can see the current FPS as well as the current irradiance field parameters. You can change various parameters of the irradiance field and press "Recalculate Probes" to recompute the diffuse global illumination using the current ui parameters. You can also adjust the camera's FOV.
 
 ## Performance Analysis
 
