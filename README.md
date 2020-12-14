@@ -14,11 +14,25 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 
 
 ## Table of Contents
- * Introduction
- * Credits
- * Walkthrough
- * Results
- * Performance Analysis
+<!--ts-->
+   * [Introduction](#introduction)
+   * [Credits](#credits)
+   * [Walkthrough](#walkthrough)
+      * [Light Field Probes](#light-field-probes)
+      * [Sampling Probes](#sampling-probes)
+      * [Weights](#weights)
+      * [Scene Generation](#scene-generation)
+      * [Dynamic Lights](#dynamic-lights)
+   * [Results](#results)
+   * [Performance Analysis](#performance-analysis)
+      * [Number of Rays per Probe](#number-of-rays-per-probe)
+      * [Probe Distance](#probe-distance)
+      * [Number of Probes](#number-of-probes)
+      * [Procedural Textures](#procedural-textures)
+      * [Number of Lights](#number-of-lights)
+      * [Dynamic vs. Static Lights](#dynamic-vs-static-lights)
+   * [Bloopers](#bloopers)
+<!--te-->
 
 ## Introduction
 
@@ -87,7 +101,24 @@ When raytracing the scene, we used grid marching in order to find the point of i
 
 In order to further optimize our program, Majercik, et. al (2019) suggests to use deferred shading. However, due to our use of grid marching to find ray intersections, there was no need to implement deferred shading. Since grid marching returns the closest intersection point to the camera, we only made lighting calculations for that single fragment as opposed to all fragments within a particular pixel like in forward rendering. Similar to deferred shading, the rendering time is independent of the amount of geometry in the scene and is instead only dependent on the number of lights and screen resolution. Thus the runtime is O(num_lights * num_pixels). Also note that grid marching is affected by the structure of the geometry due to the use of signed distance functions to represent the geometry and traverse along a ray. Despite this limitation our program still runs at a decent frame rate, but grid marching could become a potential bottleneck within other scenes.
 
+## Dynamic Lights
+
+Once we were sure that our program worked with a single, static light we added support for multiple, dynamic lights. The direct lighting with multiple lights is computed by averaging the direct contribution of each non-occluded light. Since indirect lighting is simply a series of accumulated direct lighting calculations, the aforementioned direct lighting calculation can be used multiple times in indirect lighting. To animate the lights, we update the positions of the lights every frame in our compute shaders using the elapsed time and trigonometric functions for periodic motion. For more interesting scenes, we added a light color and intensity to every light. The indirect lighting responds to the dynamic lights through the frame-by-frame update of the probe textures. Consequently, the direct and indirect lighting of every intersection responds to the changing lights in real-time. This approach does have a drawback in that the frame rate drops significantly with multiple lights. We suspect that this slow down is caused by the additional work necessary to compute the direct lighting for each light. Direct lighting computation would thus become a greater issue in the indirect lighting computation since it is the accumulation of multiple direct lighting calculations.
+
+| ![](img/weights/cornell_fl_weighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
+| ---------------------------------- | ------------------------------- |
+| Indirect and direct lighting with dynamic lights. | Indirect lighting with dynamic lights. |
+
 ## Results
+
+![](img/final_ddgi.png)
+
+To achieve the image above, we combined our direct lighting and indirecting results, which are both shown below.
+
+| ![](img/final_direct.png)   | ![](img/final_indirect.png)   |
+| ---------------------------------- | ------------------------------- |
+| Direct Lighting Only. Here we see pitch black hard shadows that are not illuminated at all. | Indirect Lighting Only. Here we see the global illumination we were able to estimate using the probes, reflecting color into otherwise pitch-black shadow areas of the scene. |
+
 
 ![](/img/coverimage1.png)
 
@@ -100,6 +131,19 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 ![](/img/cornell_box_whole.png)
 
 ![](/img/GI_cornell_breakdown.png)
+
+UI            |  Function
+:-------------------------:|:-------------------------:
+![](/img/ui.png)  |  Our UI window shows the current FPS and lets you change the irradiance field parameters and camera FOV. Press "Recalculate Probes" to recompute the indirect lighting. 
+
+
+
+
+
+
+
+
+
 
 ## Performance Analysis
 
