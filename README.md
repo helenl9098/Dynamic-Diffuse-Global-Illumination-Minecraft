@@ -22,7 +22,7 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
       * [Sampling Probes](#sampling-probes)
       * [Weights](#weights)
       * [Scene Generation](#scene-generation)
-      * [Multiple Lights](#multiple-lights)
+      * [Dynamic Lights](#dynamic-lights)
    * [Results](#results)
    * [Performance Analysis](#performance-analysis)
       * [Number of Rays per Probe](#number-of-rays-per-probe)
@@ -132,7 +132,18 @@ To achieve the image above, we combined our direct lighting and indirecting resu
 
 ![](/img/GI_cornell_breakdown.png)
 
-![](/img/ui.png) We also have a UI window where you can see the current FPS as well as the current irradiance field parameters. You can change various parameters of the irradiance field and press "Recalculate Probes" to recompute the diffuse global illumination using the current ui parameters. You can also adjust the camera's FOV.
+UI            |  Function
+:-------------------------:|:-------------------------:
+![](/img/ui.png)  |  Our UI window shows the current FPS and lets you change the irradiance field parameters and camera FOV. Press "Recalculate Probes" to recimpute the indirect lighting. 
+
+
+
+
+
+
+
+
+
 
 ## Performance Analysis
 
