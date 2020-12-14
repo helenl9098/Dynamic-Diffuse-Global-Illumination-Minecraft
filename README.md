@@ -67,9 +67,9 @@ To test the real-time efficacy of our DDGI implementation, we procedurally gener
 
 The block textures were also procedurally generated using the UVs at the point of intersection, which we calculated using the intersection position and normal. Using the UVs and intersection position, we were able to generate vertical stripes, dots, and other textures for our scene. 
 
-| ![](img/probe_cage.png)                                      | ![](img/probe_vicinity_debug.png)                            |
+| ![](/img/empty_cave.png)                                      | ![](/img/mushroom_close.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Our textured cave scene without any mushroom, lit using direct lighting. | A closer look at one of our mushrooms lit using direct lighting. |
+| Our textured cave scene without any mushroom, lit using DDGI. | A closer look at one of our mushrooms & textures lit using DDGI. |
 
 When raytracing the scene, we used grid marching in order to find the point of intersection. Grid marching involves traversing down a ray in increments of the smallest distance to the next block, essentially checking every grid block that a ray passes through. At each grid block, we would get its block type based on our procedural scene, and continue marching down the ray if the block type is empty. 
 
