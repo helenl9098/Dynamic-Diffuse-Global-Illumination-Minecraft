@@ -1,7 +1,7 @@
 Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 ======================
 
-![](img/probe_vicinity_debug.png)
+![](/img/coverfinal.png)
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Final Project**
 
@@ -39,7 +39,7 @@ To approximate global illumination at points in a scene, we can utilize *light f
 
 The implementation of these probes in Majercik et. al's paper differs from the McGuire et. al implementation. Before the scene is raytraced, each of the *m* probes sends out *n* rays that potentially intersect with the scene. We find the irradiance value at those intersections, i.e. the direct and indirect lighting at that point, and we also record the distance from the originating probe to that intersection. This information is stored in a texture; each pixel corresponds to a ray from a probe, and the pixels corresponding to one probe are packed together.
 
-| ![](img/albedo_texture.png)          | ![](img/cave.png)                      |
+| ![](/img/albedo_texture.png)          | ![](/img/cave.png)                      |
 | ------------------------------------ | -------------------------------------- |
 | An example of the probe ray texture. | A capture of the scene, for reference. |
 
