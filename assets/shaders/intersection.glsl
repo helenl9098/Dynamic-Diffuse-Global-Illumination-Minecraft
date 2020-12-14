@@ -724,6 +724,13 @@ int getBlockAt(vec3 coords, int scene) {
 		}
 
 		if (coords.y < -15) {
+            if (coords.y < -18) {
+                float r = fbm(coords.x * 0.3, coords.z * 0.3);
+                int d = int(floor(r * 2.0));
+                if (d == 0) {
+                    return 12;
+                }
+            }
 			float r = fbm(coords.x * 0.058, coords.z * 0.058);
 			int d = int(floor(r * 5.0)); 
 			if (-21 + d >= coords.y) {
@@ -734,32 +741,18 @@ int getBlockAt(vec3 coords, int scene) {
 			}
 		}
 
-		if (coords.y < -18) {
-			float r = fbm(coords.x * 0.3, coords.z * 0.3);
-			int d = int(floor(r * 2.0));
-			if (d == 0) {
-				return 12;
-			}
-		}
-
 		if (sdSphere(coords, 20.0) > 0.0) {
 			if (sdSphere(coords + vec3(16, 8, -10), 20.0) > 0.0) {
 				if (sdSphere(coords + vec3(-13, -1, 19), 18.0) > 0.0) {
-					if (sdSphere(coords + vec3(-6, -5, -4), 8.0) > 0.0) {
-							if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
-									return 10;
-							}
+					if (sdSphere(coords + vec3(20, 15, 15), 21.0) > 0.0) {
+						return 10;
 					}
 				}
 			}
 		}
 
-		int all_mushroom = all_mushrooms(coords);
-		if (all_mushroom != 0) {
-			return all_mushroom;
-		}
-
-		return 0;
+		return all_mushrooms(coords);
+	
 	}
 
 	else if (scene == 1) { // CORNELL BOX SCENE
@@ -1065,7 +1058,7 @@ bool grid_march(Ray ray, float mint, float maxt, out Isect info, int scene)
 
 	vec3 t2;
 	float curr_t = 0.0;
-	for (int i = 0; i < 150; i++) {
+	for (int i = 0; i < 125; i++) {
 	    // calculate distance to voxel boundary
         t2 = max((-fract(ray_origin))/ray_dir, (1.-fract(ray_origin))/ray_dir);
         // go to next voxel
@@ -1169,7 +1162,7 @@ ivec2 get_text_coord_from_probe_number(int probe_number)
 
     if (probe_number < 0 || x_dim < 0)
     {
-        // return ivec2(-1, -1);
+        return ivec2(-1, -1);
     }
     ivec2 result = ivec2(-1, -1);
     result[0] = int(mod(probe_number, x_dim));
@@ -1177,7 +1170,7 @@ ivec2 get_text_coord_from_probe_number(int probe_number)
 
     if (result[1] >= irradiance_field.probe_count.y)
     {
-        // return ivec2(-1, -1);
+        return ivec2(-1, -1);
     }
     return result * irradiance_field.sqrt_rays_per_probe;
 }
