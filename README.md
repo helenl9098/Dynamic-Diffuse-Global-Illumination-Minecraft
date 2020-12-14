@@ -113,7 +113,7 @@ To test the real-time efficacy of our DDGI implementation, we procedurally gener
 
 The block textures were also procedurally generated using the UVs at the point of intersection, which we calculated using the intersection position and normal. Using the UVs and intersection position, we were able to generate vertical stripes, dots, and other textures for our scene. 
 
-| ![](/img/empty_cave.png)                                      | ![](/img/mushroom_close.png)                            |
+| ![](/img/cave/empty_cave.png)                                      | ![](/img/cave/mushroom_close.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | Our textured cave scene without any mushroom, lit using DDGI. | A closer look at one of our mushrooms & textures lit using DDGI. |
 
@@ -133,36 +133,36 @@ This approach does have a drawback in that the frame rate drops significantly wi
 | ---------------------------------- | ------------------------------- |
 | Indirect and direct lighting with multiple lights. | Indirect lighting with multiple lights. |
 
-| ![](img/cave_1light.gif)   |
+| ![](img/cave/cave_1light.gif)   |
 | ---------------------------------- |
 | Dynamic lighting in cave scene with a single light. |
 
-| ![](img/cave_2light.gif)   |
+| ![](img/cave/cave_2light.gif)   |
 | ---------------------------------- |
 | Dynamic lighting in cave scene with two lights. |
 
 ## Results
 
-![](img/final_ddgi.png)
+![](img/cave/final_ddgi.png)
 
 To achieve the image above, we combined our direct lighting and indirecting results, which are both shown below.
 
-| ![](img/final_direct.png)   | ![](img/final_indirect.png)   |
+| ![](img/cave/final_direct.png)   | ![](img/cave/final_indirect.png)   |
 | ---------------------------------- | ------------------------------- |
 | Direct Lighting Only. Here we see pitch black hard shadows that are not illuminated at all. | Indirect Lighting Only. Here we see the global illumination we were able to estimate using the probes, reflecting color into otherwise pitch-black shadow areas of the scene. |
 
 
 ![](/img/coverimage1.png)
 
-![](/img/results_example_1.png)
+![](/img/charts/results_example_1.png)
 
 ![](/img/cover3.png)
 
 ![](/img/cover4.png)
 
-![](/img/cornell_box_whole.png)
+![](/img/cornell/cornell_box_whole.png)
 
-![](/img/GI_cornell_breakdown.png)
+![](/img/charts/GI_cornell_breakdown.png)
 
 UI            |  Function
 :-------------------------:|:-------------------------:
