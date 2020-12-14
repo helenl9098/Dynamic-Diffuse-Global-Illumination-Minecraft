@@ -926,7 +926,6 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 		return vec4(orange, 1);
 	}
 	else if (block_type == 7) {
-		// dark blue cyan spots
 		vec3 dark_orange = vec3(1, 0, 0.011);
 		vec3 green = vec3(0.8, 1, 0);
 		float w = worleyNoise(point.xz + vec2(5));
@@ -937,7 +936,6 @@ vec4 getColorAt(vec3 point, int block_type, vec3 normal) {
 	}
 	else if (block_type == 8) {
         //return vec4(1, 0.5, 0, 1);
-		// greenish-blue cyan spots
 		vec3 light_orange = vec3(1, 0.313, 0);
 		vec3 dark_purple = vec3(1, 0, 0.223);
 
@@ -1354,7 +1352,7 @@ vec3 get_diffuse_gi(Isect info, ivec3 probe_counts, int side_length, Ray V)
         //===============WEIGHTS CALCulation below===================/
         vec3 trilinear = mix(1.0 - alpha, alpha, offset);
         vec3 probe_pos = base_probe_world_pos + offset * side_length;
-        vec3 dir = probe_pos - pos;
+        vec3 dir = normalize(probe_pos - pos);
         // smooth backface test
         // all of these extra constants are supposed to prevent the weight
         // from going to zero

@@ -55,7 +55,13 @@ Once the probe cage has been determined, we iterate over every probe in the cage
 
 ### Weights ###
 
-The paper describes an efficient technique to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. His technique is to use the following weights to blend information from the 8 closest probes per intersection: smooth backface weight, trilinear adjacency weight, chebyshev visibility weight, and log perception weight. The smooth backface weight culls indirect contribution by excluding probes that are not mutually visible to the point of intersection. The trilinear adjacency weight interpolates lighting contribution based on the distance between every probe. The chebyshev visibility test (a.k.a. variance shadow mapping) is a technique that counters shadow aliasing by approximating how shadows soften at shadow edges. The log perception weight counters human sensitivity to contrast in low-light conditions by scaling down dimly lit intersections. The log perception weight makes light leaks less apparent to the viewer.
+The paper describes various methods to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. Majercik et. al uses the following weights to blend information from the 8 closest probes per intersection:
+- The *smooth backface weight* culls indirect contribution by excluding probes that are not mutually visible to the point of intersection.
+- The *trilinear adjacency weight* interpolates lighting contribution based on the distance between every probe.
+- The *Chebyshev visibility test* (a.k.a. variance shadow mapping) is a technique that counters shadow aliasing by approximating how shadows soften at shadow edges.
+- The *log perception weight* counters human sensitivity to contrast in low-light conditions by scaling down dimly lit intersections. It makes light leaks less apparent to the viewer.
+
+These were implemented as described in the paper, using their supplemental code as reference. However, the Chebyshev visibility test gave us undesirable artifacts, so we have chosen not to include it in our weight calculations.
 
 | ![](img/no_weights_indirect.png)   | ![](img/weights_indirect.png)   |
 | ---------------------------------- | ------------------------------- |
@@ -86,11 +92,75 @@ The base code we used for this project came with a built-in FPS counter that dis
 **Important to note:** because we generate the scene with implicit shapes (which requires us to march along rays from the camera into the scene), the FPS will vary based on how close the camera is to visible geometry. For consistency, we attempt to measure FPS from the same camera position for each scene, but the FPS will fluctuate depending on what is in view at any given moment.
 
 In this analysis, we look over these varying parameters and compare the results, both quantitative and qualitiative, of our project.
- - number of probe rays
- - number of 
+ - probe-ray count
+ - probe distance and placement
+ - probe number and density
+ - procedural textures
+ - number of lights
+ - dynamic vs. static lights
+
+Wee use the following parameters for the cave and Cornell scenes unless otherwise specified.
+
+| | Cave   | Cornell |
+| :-------------: |:-------------:|:-------------:|
+| Probe Dimensions     | (9, 7, 9)     | (5, 5, 5)     |
+| Probe Distance      | 11     | 6   |
+| Field Origin      | (1.4, 0, 1.0)     | (0, 0, 15)     |
 
 ### Number of Rays per Probe
 
+Each probe sends out the same number of rays into the scene. Increasing this number will increase it across the entire irradiance field, and will also lead to an increased probe texture size. Therefore, sending more rays per probe requires more bandwidth and potentially more computational time between the probe-data shader and the raytracing shaders. This is supported by our observations of the FPS counter as we added in more probe rays.
 
+| ![](/img/charts/fps_probe_rays_cave.png) | ![](/img/charts/fps_probe_rays_cornell.png) |
+
+However, it is not enough to say that the less rays there are, the better the performance. A minimum threshold of rays is required for accurate results. Having less rays of probe information leads to different irradiance results.
+
+| ![](/img/cave/indirect_cave_num_rays_16.png) | ![](/img/cave/indirect_cave_num_rays_144.png) | ![](/img/cave/indirect_cave_num_rays_1600.png) |
+| :-------------: |:-------------:|:-------------:|
+| 16 rays per probe | 144 rays per probe | 1600 rays per probe|
+
+Therefore, there is a tradeoff between the performance and the accuracy of the probes, and the balance of both depends on what the viewer deems as the best quality results. Although we found 400 rays per probe an acceptable standard, in other applications the parameter may have to be tweaked from scene to scene.
+
+### Probe Distance
+
+The distance between probes in the field impacts two parts of the shading process. It affects the positions of the probes, and therefore what points the irradiance is sampled from, and it also affects the Chebvyshev weight that we assign to a probe's irradiance, since it relies on the distance from the point to the probe. However, we have disabled Chebvyshev weighting due to unwanted artifacts, so modifying the distance between probes in the irradiance field mainly modifies the results of the probe texture.
+
+| ![](/img/cornell/indirect_probe_dist_6.PNG) | ![](/img/cornell/indirect_probe_dist_8.PNG) | ![](/img/cornell/indirect_probe_dist_10.PNG) |
+| :-------------: |:-------------:|:-------------:|
+| probe distance: 6| probe distance: 8 | probe distance: 10|
+
+Here we demonstrate the variance in indirect lighting, based on change to the distance between probes in the irradiance field. (The size of the irradiance field itself has not changed.) Clearly, the placement of the probes throughout the scene is significant. 
 
 ### Number of Probes
+
+While increasing the number of rays per probe results in increased lighting information, so does increasing the number of probes themselves. In particular
+
+
+ | Cave   | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
+| :-------------: |:-------------:|:-------------:|:-------------:|:-------------:|
+| Probe Dimensions     | (7, 5, 5)     | (9, 7, 9)     | (11, 9, 11)     | (15, 15, 15) |
+| Probe Distance      | 18     | 11     | 9     | 7     |
+| Field Origin      | (-0.2, 0, 1.0)     | (1.4, 0, 1.0)     | (0, 0, 0)     | (0, 0, 0)     |
+
+
+
+| Cornell Box  | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
+| :-------------: |:-------------:|:-------------:|:-------------:|:-------------:|
+| Probe Dimensions     | (3, 3, 3)     | (5, 5, 5)     | (7, 7, 7)     | (11, 11, 11) |
+| Probe Distance      | 11     | 6     | 4     | 3     |
+| Field Origin      | (0, 0, 15)     | (0, 0, 15)     | (0, 0, 15)     | (0, 0, 15)     |
+
+| ![](/img/cornell/cornell_probes_layout_1.png) | ![](/img/cornell/cornell_probes_layout_2.PNG) | ![](/img/cornell/cornell_probes_layout_3.PNG) | ![](/img/cornell/cornell_probes_layout_4.png) |
+| :-------------: | :-------------: | :-------------: | :-------------: |
+| Layout 1 | Layout 2 | Layout 3 | Layout 4 |
+
+### Procedural Textures
+
+
+
+### Number of Lights
+
+
+
+### Dynamic vs. Static Lights
+
