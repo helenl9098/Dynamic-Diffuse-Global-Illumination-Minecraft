@@ -63,12 +63,12 @@ The paper describes various methods to ensure that the indirect lighting appears
 
 These were implemented as described in the paper, using their supplemental code as reference. However, the Chebyshev visibility test gave us undesirable artifacts, so we have chosen not to include it in our weight calculations.
 
-| ![](img/weights/cornell_il_unweighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
+| ![](img/weights/cornell_il_unweighted_2.png)   | ![](img/weights/cornell_il_weighted_2.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect lighting without weights. | Indirect lighting with weights. |
 
 
-| ![](img/weights/cornell_fl_unweighted_cropped.png)   | ![](img/weights/cornell_fl_weighted_cropped.png)   |
+| ![](img/weights/cornell_fl_unweighted_2.png)   | ![](img/weights/cornell_fl_weighted_2.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect and direct lighting without weights. | Indirect and direct lighting with weights. |
 
