@@ -17,6 +17,7 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 <!--ts-->
    * [Introduction](#introduction)
    * [Credits](#credits)
+   * [Build Instructions](#build-instructions)
    * [Walkthrough](#walkthrough)
       * [Light Field Probes](#light-field-probes)
       * [Sampling Probes](#sampling-probes)
@@ -42,6 +43,25 @@ Real-time raytracing has spurred the development of faster rendering techniques 
 
 Due to hardware limitations, our team could not take advantage of the Vulkan raytracing extension. Thus, our code is based on the Realtime Vulkan Path Tracer (RVPT) developed [here](https://github.com/GraphicsProgramming/RVPT/), which relies on compute shaders to raytrace scenes. Without this, our Vulkan framework would have taken much longer to setup from scratch.
 
+## Build Instructions
+
+Requires:
+ * C++17 compiler
+ * CMake version 3.11 or higher
+ * Vulkan SDK installed. Download here: https://vulkan.lunarg.com/sdk/home
+
+CMake is the build system. 
+Basic compilation instructions
+```
+git clone https://github.com/helenl9098/ddgi_minecraft.git
+cd ddgi_minecraft
+mkdir build
+cd build
+cmake .. 
+```
+This will create the rvpt executable in the build directory. It requires the assets folder to operate currently.
+
+Run the `rvpt` solution file that was produced using visual studios with rvpt as your start-up project.
 ## Walkthrough
 
 Here we lay out our interpretation of the paper and our implementation details.
