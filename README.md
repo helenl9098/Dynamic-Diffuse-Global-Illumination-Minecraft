@@ -57,12 +57,12 @@ Once the probe cage has been determined, we iterate over every probe in the cage
 
 The paper describes an efficient technique to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. His technique is to use the following weights to blend information from the 8 closest probes per intersection: smooth backface weight, trilinear adjacency weight, chebyshev visibility weight, and log perception weight. The smooth backface weight culls indirect contribution by excluding probes that are not mutually visible to the point of intersection. The trilinear adjacency weight interpolates lighting contribution based on the distance between every probe. The chebyshev visibility test (a.k.a. variance shadow mapping) is a technique that counters shadow aliasing by approximating how shadows soften at shadow edges. The log perception weight counters human sensitivity to contrast in low-light conditions by scaling down dimly lit intersections. The log perception weight makes light leaks less apparent to the viewer.
 
-| ![](img/weights/cornell_il_unweighted_2.png)   | ![](img/weights/cornell_il_weighted_2.png)   |
+| ![](img/weights/cornell_il_unweighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect lighting without weights. | Indirect lighting with weights. |
 
 
-| ![](img/weights/cornell_fl_unweighted_2.png)   | ![](img/weights/cornell_fl_weighted_2.png)   |
+| ![](img/weights/cornell_fl_unweighted_cropped.png)   | ![](img/weights/cornell_fl_weighted_cropped.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect and direct lighting without weights. | Indirect and direct lighting with weights. |
 
@@ -98,3 +98,13 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 ## Performance Analysis
 
 *To be updated when the project is finished.*
+
+## Bloopers
+
+| ![](/img/bloopers/combined_without_visibility.PNG)            | ![](/img/bloopers/indirect_from_probes_blooper3.PNG)                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Did not test for points outside irradiance field | Sampled probe with wrong direction. |
+
+| ![](/img/bloopers/indirect_kinda_working.png) | ![](/img/bloopers/indirect_working_more.png)                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Combined direct and indirect incorrectly. No weighting. | Textures were sampling out of bounds and resulted in incorrect color bleeding. |
