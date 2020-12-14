@@ -226,15 +226,18 @@ Qualitatively
 
 ### Procedural Textures
 
-Because we involve noise functions (e.g. Worley noise, fractional brownian motion) to texture our cave, we need additional time to compute the color of a block in that scene. These calculations take up a notable amount of time: if we remove procedural texturing and fill the cave with flat colors, the scene renders at about **75 FPS**, while our use of procedural textures results in **60 FPS**. A **15 FPS** difference is not insignificant.
+Because we involve noise functions (e.g. Worley noise, fractional brownian motion) to texture our cave, we need additional time to compute the color of a block in that scene. These calculations take up a notable amount of time: if we remove procedural texturing and fill the cave with flat colors, the scene renders at about **75 FPS**, while our use of procedural textures results in **60 FPS**. A **15 FPS** difference is not insignificant at this framerate level.
 
 ### Number of Lights
 
+Although our project intends to pull global illumination out of limited light sources, we wanted to test how the number of lights in the scene impacted quantitative performance. We expected the performance to go down with the addition of more lights because our direct lighting calculation relies on the total number of lights in the scene. Since this calculation is done for multiple bounces in the probe-data and raytracing shaders combined, the compute time from additional lights will accumulate. This is supported by our results for both the cave and Cornell box scenes.
 
+![](/img/charts/fps_num_lights_cave.png)
+![](/img/charts/fps_num_lights_cornell.png)
 
 ### Dynamic vs. Static Lights
 
-
+We briefly tested how animating the lights affected performance, to see if it slowed it down terribly. For three lights in the Cornell scene, the framerate is at **250 FPS** for static and **220 FPS** for dynamic lights. However, for four lights in the cave scene, the framerate is at **29 FPS** for both static and dynamic lights. The actual calculation time should be consistent across scenes, so the discrepancy may result from their initial framerate levels; the Cornell box's framerate is more suspectible to change because of how high the framerate is already. Therefore, animating the lights may not impact the framerate as substantially as other parameters, at least for the cave scene. 
 
 ## Bloopers
 

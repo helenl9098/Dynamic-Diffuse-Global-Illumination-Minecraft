@@ -58,7 +58,7 @@ struct Light
     vec3 pos;
 };
 
-const int num_lights[3] = {4, 1, 2};
+const int num_lights[3] = {4, 3, 2};
 
 //Light lights_0[num_lights[0]] = {{100.f, vec3(1.f), vec3(4, 17.5, 8.5)}};
 
@@ -67,8 +67,6 @@ Light lights_0[num_lights[0]] = {{20.f, vec3(1.f), vec3(4, 17.5, 8.5)},
                                  {10.f, vec3(0.1f, 1.1f, 1.f), vec3(5, 0, 0)},
                                  {10.f, vec3(1.1f, 0.f, 1.1f), vec3(0, 5, 0)},
 };
-
-
 
 /* Light lights_0[num_lights[0]] = {{10.f, vec3(1.f), vec3(4, 17.5, 8.5)},
                                  {10.f, vec3(1.f, 0.1f, 0.1f), vec3(-19, 14, 13)},
@@ -83,8 +81,8 @@ Light lights_0[num_lights[0]] = {{20.f, vec3(1.f), vec3(4, 17.5, 8.5)},
 //Light lights_1[num_lights[1]] = {{15.f, vec3(1.f), vec3(0, 8, 13)}};
 
 Light lights_1[num_lights[1]] = {{10.f, vec3(1.f, 0.1f, 0.1f), vec3(0, 8, 13)},
-                                //{10.f, vec3(0.1f, 0.1f, 1.f), vec3(0, 8, 9)},
-                                //{10.f, vec3(0.1f, 1.f, 0.1f), vec3(-3, 8, 9)},
+                                {10.f, vec3(0.1f, 0.1f, 1.f), vec3(0, 8, 9)},
+                                {10.f, vec3(0.1f, 1.f, 0.1f), vec3(-3, 8, 9)},
                                 };
 
 Light lights_2[num_lights[2]] = {{1.f, vec3(1.f), vec3(5, 9.3, 36.5)},
