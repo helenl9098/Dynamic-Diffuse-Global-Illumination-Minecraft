@@ -89,14 +89,6 @@ Once the probe cage has been determined, we iterate over every probe in the cage
 
 ### Weights ###
 
-<<<<<<< HEAD
-The paper describes an efficient technique to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. His technique is to use the following weights to blend information from the 8 closest probes per intersection: smooth backface weight, trilinear adjacency weight, chebyshev visibility weight, and log perception weight. The smooth backface weight culls indirect contribution by excluding probes that are not mutually visible to the point of intersection. The trilinear adjacency weight interpolates lighting contribution based on the distance between every probe. The chebyshev visibility test (a.k.a. variance shadow mapping) is a technique that counters shadow aliasing by approximating how shadows soften at shadow edges. The log perception weight counters human sensitivity to contrast in low-light conditions by scaling down dimly lit intersections. The log perception weight makes light leaks less apparent to the viewer.
-
-| ![](img/no_weights_indirect.png) | ![](img/weights_indirect.png) |
-| ------------- | ------------- |
-| Indirect lighting without weights. | Indirect lighting with weights. |
-
-=======
 The paper describes various methods to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. Majercik et. al uses the following weights to blend information from the 8 closest probes per intersection:
 - The *smooth backface weight* culls indirect contribution by excluding probes that are not mutually visible to the point of intersection.
 - The *trilinear adjacency weight* interpolates lighting contribution based on the distance between every probe.
@@ -114,30 +106,20 @@ These were implemented as described in the paper, using their supplemental code 
 | ---------------------------------- | ------------------------------- |
 | Indirect and direct lighting without weights. | Indirect and direct lighting with weights. |
 
-
->>>>>>> 72fab90e6794a22f60d16bb8529e1d042fa2fc97
 ### Scene Generation
 
 To test the real-time efficacy of our DDGI implementation, we procedurally generated a Minecraft-inspired mushroom caves scene; This scene contains a hallowed out cave with openings to the surface and various large mushroom types growing from the ground. The hallowed cave is constructed from a union of different sphere signed distance functions (SDFs), and the floor of the cave is diversified using a fractal brownian noise. As for the mushrooms, there are 4 variations, each made from a different rounded rectangular prism SDF. The mushrooms are strategically placed in the scene so we can utilize bounding box checks to achieve faster a runtime. 
 
 The block textures were also procedurally generated using the UVs at the point of intersection, which we calculated using the intersection position and normal. Using the UVs and intersection position, we were able to generate vertical stripes, dots, and other textures for our scene. 
 
-<<<<<<< HEAD
-| ![](img/probe_cage.png) | ![](img/probe_vicinity_debug.png) |
-| ------------- | ------------- |
-| Our textured cave scene without any mushroom, lit using direct lighting. | A closer look at one of our mushrooms lit using direct lighting. |
-=======
 | ![](/img/empty_cave.png)                                      | ![](/img/mushroom_close.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | Our textured cave scene without any mushroom, lit using DDGI. | A closer look at one of our mushrooms & textures lit using DDGI. |
->>>>>>> 72fab90e6794a22f60d16bb8529e1d042fa2fc97
 
 When raytracing the scene, we used grid marching in order to find the point of intersection. Grid marching involves traversing down a ray in increments of the smallest distance to the next block, essentially checking every grid block that a ray passes through. At each grid block, we would get its block type based on our procedural scene, and continue marching down the ray if the block type is empty. 
 
 In order to further optimize our program, Majercik, et. al (2019) suggests to use deferred shading. However, due to our use of grid marching to find ray intersections, there was no need to implement deferred shading. Since grid marching returns the closest intersection point to the camera, we only made lighting calculations for that single fragment as opposed to all fragments within a particular pixel like in forward rendering. Similar to deferred shading, the rendering time is independent of the amount of geometry in the scene and is instead only dependent on the number of lights and screen resolution. Thus the runtime is O(num_lights * num_pixels). Also note that grid marching is affected by the structure of the geometry due to the use of signed distance functions to represent the geometry and traverse along a ray. Despite this limitation our program still runs at a decent frame rate, but grid marching could become a potential bottleneck within other scenes.
 
-<<<<<<< HEAD
-=======
 ## Dynamic Lights
 
 Once we were sure that our program worked with a single, static light we added support for multiple, dynamic lights. The direct lighting with multiple lights is computed by averaging the direct contribution of each non-occluded light. Since indirect lighting is simply a series of accumulated direct lighting calculations, the aforementioned direct lighting calculation can be used multiple times in indirect lighting. 
@@ -158,7 +140,6 @@ This approach does have a drawback in that the frame rate drops significantly wi
 | ---------------------------------- |
 | Dynamic lighting in cave scene with two lights. |
 
->>>>>>> 72fab90e6794a22f60d16bb8529e1d042fa2fc97
 ## Results
 
 ![](img/final_ddgi.png)
@@ -197,9 +178,6 @@ UI            |  Function
 
 ## Performance Analysis
 
-<<<<<<< HEAD
-*To be updated when the project is finished.*
-=======
 The base code we used for this project came with a built-in FPS counter that displays in the top left corner of the screen. To gauge the performance of our project, we relied on this counter and took an informal estimate of the frames per second. This involved eyeballing the range of values that the counter reached within fifteen seconds, then taking the average of these values and recording it for analysis.
 
 **Important to note:** because we generate the scene with implicit shapes (which requires us to march along rays from the camera into the scene), the FPS will vary based on how close the camera is to visible geometry. For consistency, we attempt to measure FPS from the same camera position for each scene, but the FPS will fluctuate depending on what is in view at any given moment.
@@ -302,5 +280,3 @@ We briefly tested how animating the lights affected performance, to see if it sl
 | ![](/img/bloopers/indirect_kinda_working.png) | ![](/img/bloopers/indirect_working_more.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | Here we had combined direct and indirect lighting incorrectly. No weighting. | Our textures were sampling out of bounds and resulted in incorrect color bleeding. |
-
->>>>>>> 72fab90e6794a22f60d16bb8529e1d042fa2fc97
