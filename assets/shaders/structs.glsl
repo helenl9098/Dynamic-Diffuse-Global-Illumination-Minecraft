@@ -84,9 +84,9 @@ const int num_lights[3] = {1, 3, 2};
 //Light lights_1[num_lights[1]] = {{1.f, vec3(1.f), vec3(0, 8, 13)},
 //                                 {1.f, vec3(1.f), vec3(0, 8, 9)}};
 
-Light lights_1[num_lights[1]] = {{20.f, vec3(1.f, 0.1f, 0.1f), vec3(0, 8, 13)},
-                                {20.f, vec3(0.1f, 0.1f, 1.f), vec3(0, 8, 9)},
-                                {20.f, vec3(0.1f, 1.f, 0.1f), vec3(-3, 8, 9)},
+Light lights_1[num_lights[1]] = {{10.f, vec3(1.f, 0.1f, 0.1f), vec3(0, 8, 13)},
+                                {10.f, vec3(0.1f, 0.1f, 1.f), vec3(0, 8, 9)},
+                                {10.f, vec3(0.1f, 1.f, 0.1f), vec3(-3, 8, 9)},
                                 };
 
 Light lights_2[num_lights[2]] = {{1.f, vec3(1.f), vec3(5, 9.3, 36.5)},
