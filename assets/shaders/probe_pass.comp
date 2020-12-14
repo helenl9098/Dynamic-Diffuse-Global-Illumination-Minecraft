@@ -17,28 +17,20 @@ layout(binding = 0) uniform RenderSettings
     int screen_width;
     int screen_height;
     int max_bounces;
-    int aa;
-    uint current_frame;
     int camera_mode;
-    int top_left_render_mode;
-    int top_right_render_mode;
-    int bottom_left_render_mode;
-    int bottom_right_render_mode;
-    vec2 split_ratio;
-	int scene;
+    int render_mode;
+    int scene;
+	float time;
+    bool visualize_probes;
 }
 render_settings;
 
 layout(std430, binding = 1) buffer ProbeRays { ProbeRay rays[]; };
 
 layout(binding = 2, rgba8) uniform image2D probe_image_albedo;
-layout(binding = 3, rgba8) uniform image2D probe_image_normals;
-layout(binding = 4, rgba8) uniform image2D probe_image_distances;
+layout(binding = 3, rgba8) uniform image2D probe_image_distances;
 
-layout(std430, binding = 5) buffer Spheres { Sphere spheres[]; };
-layout(std430, binding = 6) buffer Triangles { Triangle triangles[]; };
-layout(std430, binding = 7) buffer Materials { Material materials[]; };
-layout(binding = 8) uniform IrradianceField
+layout(binding = 4) uniform IrradianceField
 {
     ivec3 probe_count;
     int side_length;
@@ -48,7 +40,7 @@ layout(binding = 8) uniform IrradianceField
 } irradiance_field;
 
 
-//// TAKEN FROM UTILS.GLSL (not included because of absent variables) ///////
+//// TAKEN FROM UTILS.GLSL (file not included because of absent variables) ///////
 
 uint wang_hash(uint seed)
 {
@@ -155,7 +147,7 @@ ivec2 get_texture_coords_of_probe_index(int index) {
 #define TWO_PI            6.2831853071795864769252867665590057683943f
 #define SQRT_OF_ONE_THIRD 0.5773502691896257645091487805019574556476f
 
-vec3 calculateRandomDirectionInHemisphere(vec3 normal) {
+vec3 calculate_random_dir_hemisphere(vec3 normal) {
     float up = sqrt(rand()); // cos(theta)
     float over = sqrt(1 - up * up); // sin(theta)
     float around = rand() * TWO_PI;
@@ -185,19 +177,82 @@ vec3 calculateRandomDirectionInHemisphere(vec3 normal) {
         + sin(around) * over * perpendicularDirection2;
 }
 
-vec3 get_direct_lighting(Isect info, vec3 light_vec) {
-	Ray light_feeler = Ray(info.pos, light_vec);
-	Isect temp_info;
-	if (intersect_scene(light_feeler, 0, INF, temp_info)) {
-		if (temp_info.type == 2) {
-	            return info.mat.base_color;
-	        } else {
-	            return 0.5 * info.mat.base_color;
-	        }
-	    }
+vec3 get_direct_lighting(Isect info) {
+
+
+	vec3 direct_lighting = vec3(0.f);
+    int num_visible_lights = 0;
+	bool hit_scene = false;
+    for (int i = 0; i < num_lights[render_settings.scene]; i++)
+    {
+        Light l = get_light(render_settings.scene, i);
+        Ray light_feeler = Ray(info.pos, normalize(l.pos - info.pos));
+		Isect temp_info;
+        if (intersect_scene(light_feeler, 0, INF, temp_info))
+        {
+			hit_scene = true;
+			float lambert =
+                    clamp(dot(normalize(info.normal),
+                              normalize(l.pos - info.pos)),
+                          0.0, 1.0);
+            if (temp_info.type == 2)
+            {
+				float dist = distance(l.pos, info.pos);
+                direct_lighting += lambert * l.col * l.intensity / (dist);
+            } else {
+				return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
+			}
+			num_visible_lights++;
+        }
+    }
+
+	if (num_visible_lights != 0)
+    {
+        return info.mat.base_color * direct_lighting / num_visible_lights;
+    }
+
+	return vec3(0, 0, 0);
+}
+
+void update_lights() {
+    // minecraft cave scene light animations
+    for (int i = 0; i < num_lights[0]; i++) {
+        
+        float t = 0.05f * render_settings.time;
+
+        if (i == 0) {
+            float x = lights_0[i].pos.x;
+            float y = lights_0[i].pos.y;
+            float z = lights_0[i].pos.z + 10 * cos(t * 0.1);
+			lights_0[i].pos = vec3(lights_0[i].pos.x, y, z);
+            continue;
+        }
+        
+        float x = lights_0[i].pos.x + (i + 1) * 2 * sin(t * 0.5);
+        float y = lights_0[i].pos.y + (i / 2) * 4 * sin(t * 0.5);
+        float z = lights_0[i].pos.z + (i + 1) * 2 * cos(t * 0.5);
+        lights_0[i].pos = vec3(x, y, z);
+     }
+    
+
+    // cornell box light animations
+    for (int i = 0; i < num_lights[1]; i++) {
+        float t = 0.005f * render_settings.time;
+        float x = lights_1[i].pos.x + (i + 1) * sin(t);
+        float y = lights_1[i].pos.y + (i / 2) * 4 * sin(t);
+        float z = lights_1[i].pos.z + (i + 1) * cos(t);
+        lights_1[i].pos = vec3(x, y, z);
+        // lights_1[i].pos -= vec3(0.005f * render_settings.time);
+    }
+
+    for (int i = 0; i < num_lights[2]; i++) {
+        lights_2[i].pos += vec3(0.00005f * render_settings.time);
+    }
 }
 
 void main() {
+	//update_lights();
+
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;
 	
@@ -224,45 +279,25 @@ void main() {
 	vec3 light_vec = vec3(0.0);
 	vec3 dir_light_term = vec3(0.0);
 	float lambert = 0.0;
-	for(int i = 0; i < 5; i++) {
-		if(intersect_scene(r, 0, INF, hit_info)) {
-			if(first_bounce) {
-				normal = hit_info.normal;
-				distances.x = length(hit_info.pos - r.origin);
-				distances.y = distances.x * distances.x;
-				first_bounce = false;
-			}
 
-			// Get direct lighting at that point
-			light_vec = normalize(get_light_pos_in_scene(render_settings.scene) - hit_info.pos);
-			dir_light_term = get_direct_lighting(hit_info, light_vec);
-			lambert = clamp(dot(normalize(hit_info.normal),
-										  normalize(light_vec)),
-		                    0.0,
-		                    1.0);
-			throughput *= dir_light_term * lambert / PI;
-
-			color += throughput;
-
-			
-		
-			// Update next ray and intersection
-			r = Ray(hit_info.pos, calculateRandomDirectionInHemisphere(hit_info.normal));
+	Ray indirect_ray = r;
+	for(int i = 0; i < render_settings.max_bounces; i++) {
+		if (intersect_scene(indirect_ray, 0, INF, hit_info)) {
+			vec3 indirect_color_contribution = get_direct_lighting(hit_info);
+			color += indirect_color_contribution;
 		} else {
 			break;
 		}
+
+		indirect_ray = Ray(hit_info.pos + 0.0001 * hit_info.normal, calculate_random_dir_hemisphere(hit_info.normal));
 	}
 
-	vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
+	color /= render_settings.max_bounces;
 
-	// for each ray
-	// get ray direction
-	// takes a 2d into a sphere coord
-	// texel direction ?
-
-	color = mix(old_color, color, irradiance_field.hysteresis);
+	
+	/*vec3 old_color = vec3(imageLoad(probe_image_albedo, texture_coords));
+	color = mix(old_color, color, irradiance_field.hysteresis);*/
 
 	imageStore(probe_image_albedo, texture_coords, vec4(color, 1.0));
-	imageStore(probe_image_normals, texture_coords, vec4(normal, 0.0));
 	imageStore(probe_image_distances, texture_coords, vec4(distances, 0.0, 0.0));
 }

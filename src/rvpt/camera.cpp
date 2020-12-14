@@ -26,12 +26,7 @@ glm::mat4 construct_camera_matrix(glm::vec3 translation, glm::vec3 rotation)
 }
 
 Camera::Camera(float aspect, glm::vec3 origin, glm::vec3 rotation) : aspect(aspect), translation(origin), rotation(rotation) { 
-    
-    // TO DO: Don't manually set FOV 
-    fov = 45;
-
     recalculate_values(); 
-
 }
 
 void Camera::move(glm::vec3 translation)
@@ -136,7 +131,7 @@ glm::mat4 Camera::get_pv_matrix()
 void Camera::update_imgui()
 {
     static bool is_active = true;
-    ImGui::SetNextWindowPos({0, 265}, ImGuiCond_Once);
+    ImGui::SetNextWindowPos({0, 425}, ImGuiCond_Once);
     ImGui::SetNextWindowSize({200, 210}, ImGuiCond_Once);
 
     if (ImGui::Begin("Camera Data", &is_active))

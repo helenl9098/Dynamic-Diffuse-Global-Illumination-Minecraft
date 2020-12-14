@@ -479,7 +479,6 @@ public:
                    VkFormat format, VkImageTiling tiling, uint32_t width, uint32_t height,
                    VkImageUsageFlags usage, VkImageLayout layout, VkImageAspectFlags aspects,
                    VkDeviceSize size, MemoryUsage memory_usage);
-
     VkImage get() const { return image.handle; }
     VkDescriptorImageInfo descriptor_info() const;
 

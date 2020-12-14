@@ -6,64 +6,6 @@
 #include <fmt/core.h>
 #include "rvpt.h"
 
-#define TINYOBJLOADER_IMPLEMENTATION // define this in only *one* .cc
-#include "tinyobjloader/tiny_obj_loader.h"
-
-void load_model(RVPT& rvpt, std::string inputfile, int material_id)
-{
-    rvpt.get_asset_path(inputfile);
-
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-
-    std::string warn;
-    std::string err;
-
-    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, inputfile.c_str());
-
-    if (!warn.empty())
-    {
-        fmt::print("[{}: {}] {}\n", "WARNING", "MODEL-LOADING", warn);
-    }
-
-    if (!err.empty())
-    {
-        fmt::print("[{}: {}] {}\n", "ERROR", "MODEL-LOADING", err);
-        exit(-1);
-    }
-
-    // Loop over shapes
-    for (size_t s = 0; s < shapes.size(); s++) {
-        // Loop over faces(polygon)
-        size_t index_offset = 0;
-        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-            int fv = shapes[s].mesh.num_face_vertices[f];
-
-            // Loop over vertices in the face.
-            if (fv != 3)
-            {
-                fmt::print("Shape had a face with more than 3 vertices, skipping");
-                continue;
-            }
-            glm::vec3 vertices[3];
-
-            for (size_t v = 0; v < fv; v++) {
-                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
-                vertices[v].x = attrib.vertices[3*idx.vertex_index+0];
-                vertices[v].y = attrib.vertices[3*idx.vertex_index+1];
-                vertices[v].z = attrib.vertices[3*idx.vertex_index+2];
-            }
-            index_offset += fv;
-
-            rvpt.add_triangle(Triangle(vertices[0], vertices[1], vertices[2], material_id));
-
-            // per-face material
-            shapes[s].mesh.material_ids[f];
-        }
-    }
-
-}
 
 void update_camera(Window& window, RVPT& rvpt)
 {
@@ -95,23 +37,14 @@ void update_camera(Window& window, RVPT& rvpt)
 int main()
 {
     Window::Settings settings;
-    settings.width = 1000;
-    settings.height = 1000;
+    settings.width = 1600;
+    settings.height = 900;
     Window window(settings);
 
     RVPT rvpt(window);
 
-    load_model(rvpt, "models/cube.obj", 1);
-
     // Setup Demo Scene
     rvpt.generate_probe_rays();
-
-    rvpt.add_material(Material(glm::vec4(1, 1, 0, 0), glm::vec4(10.0, 50.0, 50.0, 0),
-                               Material::Type::LAMBERT));
-    rvpt.add_sphere(Sphere(glm::vec3(0, 0, 0), 0.f, 0));
-    rvpt.add_material(Material(glm::vec4(1.0, 0.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
-    rvpt.add_material(Material(glm::vec4(0.0, 1.0, 0.0, 0), glm::vec4(0), Material::Type::LAMBERT));
-
 
 
     bool rvpt_init_ret = rvpt.initialize();
@@ -149,7 +82,7 @@ int main()
         window.poll_events();
         if (window.is_key_down(Window::KeyCode::KEY_ESCAPE)) window.set_close();
         if (window.is_key_down(Window::KeyCode::KEY_R)) rvpt.reload_shaders();
-        if (window.is_key_down(Window::KeyCode::KEY_V)) rvpt.toggle_debug();
+        //if (window.is_key_down(Window::KeyCode::KEY_V)) rvpt.toggle_debug();
         if (window.is_key_up(Window::KeyCode::KEY_ENTER))
         {
             window.set_mouse_window_lock(!window.is_mouse_locked_to_window());

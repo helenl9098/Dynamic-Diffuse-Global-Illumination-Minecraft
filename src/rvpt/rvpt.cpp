@@ -25,7 +25,8 @@ struct DebugVertex
     glm::vec3 color;
 };
 
-uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, VkMemoryPropertyFlags properties)
+uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter,
+                        VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties memProperties;
     vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
@@ -41,10 +42,9 @@ uint32_t findMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, Vk
     throw std::runtime_error("failed to find suitable memory type!");
 }
 
-void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize size,
-                  VkBufferUsageFlags usage,
-                  VkMemoryPropertyFlags properties,
-                  VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+void RVPT::create_staging_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                                 VkMemoryPropertyFlags properties, VkBuffer& buffer,
+                                 VkDeviceMemory& bufferMemory)
 {
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -52,62 +52,159 @@ void createBuffer(VkPhysicalDevice physicalDevice, VkDevice device, VkDeviceSize
     bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+    if (vkCreateBuffer(vk_device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create buffer!");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+    vkGetBufferMemoryRequirements(vk_device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = findMemoryType(physicalDevice, memRequirements.memoryTypeBits, properties);
+    allocInfo.memoryTypeIndex = findMemoryType(context.device.physical_device.physical_device,
+                                               memRequirements.memoryTypeBits, properties);
 
-    if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+    if (vkAllocateMemory(vk_device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    vkBindBufferMemory(device, buffer, bufferMemory, 0);
+    vkBindBufferMemory(vk_device, buffer, bufferMemory, 0);
 }
 
-void createTextureImage(VkPhysicalDevice physicalDevice, VkDevice device)
-{ 
-    int texWidth, texHeight, texChannels; 
-    stbi_uc* pixels =
-    stbi_load("../img/statue.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+void RVPT::transition_image_layout(VkImage image, VkFormat format, VkImageLayout oldLayout,
+                                   VkImageLayout newLayout)
+{
+    auto command_buffer = VK::CommandBuffer(vk_device, *graphics_queue, "transition_image_buffer");
 
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    command_buffer.begin();
 
-    if (!pixels)
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+             newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+
+        barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    }
+    else
+    {
+        throw std::invalid_argument("unsupported layout transition!");
+    }
+
+    vkCmdPipelineBarrier(command_buffer.get(), sourceStage, destinationStage, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+
+    command_buffer.end();
+}
+
+void RVPT::copy_buffer_to_image(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+{
+    auto command_buffer = VK::CommandBuffer(vk_device, *graphics_queue, "transition_image_buffer");
+
+    command_buffer.begin();
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {width, height, 1};
+
+    vkCmdCopyBufferToImage(command_buffer.get(), buffer, image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    command_buffer.end();
+}
+
+VK::Image RVPT::create_block_texture()
+{
+    int tex_width = 512, tex_height = 512, tex_channels;
+   /* stbi_uc* pixels =
+        stbi_load("../img/statue.jpg", &tex_width, &tex_height, &tex_channels, STBI_rgb_alpha);
+        */
+    VkDeviceSize image_size = tex_width * tex_height * 4;
+
+    /*if (!pixels)
     {
         throw std::runtime_error("failed to load texture image!");
     }
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    createBuffer(physicalDevice, device, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 stagingBuffer, stagingBufferMemory);
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+    create_staging_buffer(
+        image_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, staging_buffer,
+        staging_buffer_memory);
 
     void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
-    memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(device, stagingBufferMemory);
+    vkMapMemory(vk_device, staging_buffer_memory, 0, image_size, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(image_size));
+    vkUnmapMemory(vk_device, staging_buffer_memory);
 
-    stbi_image_free(pixels);
+    stbi_image_free(pixels);*/
 
+    auto block_texture_image = VK::Image(
+        vk_device, memory_allocator, *graphics_queue, "block_texture", VK_FORMAT_R8G8B8A8_UNORM,
+        VK_IMAGE_TILING_OPTIMAL, tex_width, tex_height,
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT, static_cast<VkDeviceSize>(image_size),
+        VK::MemoryUsage::gpu);
+
+    /*transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB,
+                            VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    copy_buffer_to_image(staging_buffer, block_texture_image.get(),
+                         static_cast<uint32_t>(tex_width), static_cast<uint32_t>(tex_height));
+
+    transition_image_layout(block_texture_image.get(), VK_FORMAT_R8G8B8A8_SRGB,
+                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    vkDestroyBuffer(vk_device, staging_buffer, nullptr);
+    vkFreeMemory(vk_device, staging_buffer_memory, nullptr);
+    */
+    return std::move(block_texture_image);
 }
 
 bool RVPT::PreviousFrameState::operator==(RVPT::PreviousFrameState const& right)
 {
-    return glm::equal(settings.split_ratio, right.settings.split_ratio) == glm::bvec2(true, true) &&
-           settings.top_left_render_mode == right.settings.top_left_render_mode &&
-           settings.top_right_render_mode == right.settings.top_right_render_mode &&
-           settings.bottom_left_render_mode == right.settings.bottom_left_render_mode &&
-           settings.bottom_right_render_mode == right.settings.bottom_right_render_mode &&
+    return settings.render_mode == right.settings.render_mode &&
            settings.camera_mode == right.settings.camera_mode && camera_data == right.camera_data &&
            settings.scene == right.settings.scene;
 }
@@ -127,9 +224,6 @@ RVPT::RVPT(Window& window)
     {
         source_folder = json["project_source_dir"];
     }
-
-    random_numbers.resize(20480);
-
 }
 
 RVPT::~RVPT() {}
@@ -170,66 +264,27 @@ bool RVPT::initialize()
 }
 bool RVPT::update()
 {
-    //spheres[0].origin.y -= 0.01f;
+    render_settings.visualize_probes = visualize_probes;
+
     auto camera_data = scene_camera.get_data();
 
     render_settings.camera_mode = scene_camera.get_camera_mode();
 
-    if (!(previous_frame_state == RVPT::PreviousFrameState{render_settings, camera_data}))
-    {
-        render_settings.current_frame = 0;
-        previous_frame_state.settings = render_settings;
-        previous_frame_state.camera_data = camera_data;
-    }
-    else
-    {
-        render_settings.current_frame++;
-    }
-
-    for (auto& r : random_numbers) r = (distribution(random_generator));
+    // render_settings.current_frame = 0;
+    previous_frame_state.settings = render_settings;
+    previous_frame_state.camera_data = camera_data;
 
     per_frame_data[current_frame_index].raytrace_work_fence.wait();
     per_frame_data[current_frame_index].raytrace_work_fence.reset();
 
+    float delta = static_cast<float>(time.since_last_frame());
+    render_settings.time += 2;
     per_frame_data[current_frame_index].settings_uniform.copy_to(render_settings);
-    per_frame_data[current_frame_index].random_buffer.copy_to(random_numbers);
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 
-    float delta = static_cast<float>(time.since_last_frame());
-
-    per_frame_data[current_frame_index].sphere_buffer.copy_to(spheres);
-    per_frame_data[current_frame_index].triangle_buffer.copy_to(triangles);
-    per_frame_data[current_frame_index].material_buffer.copy_to(materials);
     per_frame_data[current_frame_index].probe_buffer.copy_to(probe_rays);
-	
-	// S_CHANGED
-    // also make sure to update irradiance field here
-    // similar to random numbers
+
     per_frame_data[current_frame_index].irradiance_field_uniform.copy_to(ir);
-	
-    if (debug_overlay_enabled)
-    {
-        std::vector<DebugVertex> debug_triangles;
-        debug_triangles.reserve(triangles.size());
-        for (auto& tri : triangles)
-        {
-            glm::vec3 normal{tri.vertex0.w, tri.vertex1.w, tri.vertex2.w};
-            glm::vec3 color{materials[static_cast<size_t>(tri.material_id.x)].albedo};
-            debug_triangles.push_back({glm::vec3(tri.vertex0), normal, color});
-            debug_triangles.push_back({glm::vec3(tri.vertex1), normal, color});
-            debug_triangles.push_back({glm::vec3(tri.vertex2), normal, color});
-        }
-        size_t vert_byte_size = debug_triangles.size() * sizeof(DebugVertex);
-        if (per_frame_data[current_frame_index].debug_vertex_buffer.size() < vert_byte_size)
-        {
-            per_frame_data[current_frame_index].debug_vertex_buffer = VK::Buffer(
-                vk_device, memory_allocator, "debug_vertex_buffer",
-                VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vert_byte_size, VK::MemoryUsage::cpu_to_gpu);
-        }
-        per_frame_data[current_frame_index].debug_vertex_buffer.copy_to(debug_triangles);
-        per_frame_data[current_frame_index].debug_camera_uniform.copy_to(
-            scene_camera.get_pv_matrix());
-    }
 
     return true;
 }
@@ -265,69 +320,48 @@ void RVPT::update_imgui()
     ImGui::End();
     static bool show_render_settings = true;
     ImGui::SetNextWindowPos({0, 65}, ImGuiCond_Once);
-    ImGui::SetNextWindowSize({200, 190}, ImGuiCond_Once);
+    ImGui::SetNextWindowSize({200, 360}, ImGuiCond_Once);
     if (ImGui::Begin("Render Settings", &show_stats))
     {
         ImGui::PushItemWidth(80);
         ImGui::SliderInt("Scene", &render_settings.scene, 0, 2);
-        ImGui::SliderInt("AA", &render_settings.aa, 1, 64);
-        ImGui::SliderInt("Max Bounce", &render_settings.max_bounces, 1, 64);
-
-        ImGui::Checkbox("Debug Raster", &debug_overlay_enabled);
-
-        // indent "Wireframe" checkbox, grayed out if debug raster disabled
-        if (!debug_overlay_enabled)
-        {
-            ImGui::PushItemFlag(ImGuiItemFlags_Disabled, true);
-            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.5f);
-        }
-        ImGui::Indent();
-        ImGui::Checkbox("Wireframe", &debug_wireframe_mode);
-        ImGui::Unindent();
-        if (!debug_overlay_enabled)
-        {
-            ImGui::PopItemFlag();
-            ImGui::PopStyleVar();
-        }
-        
-        static bool horizontal_split = false;
-        static bool vertical_split = false;
-        if (ImGui::Checkbox("Split", &horizontal_split))
-        {
-            render_settings.split_ratio.x = 0.5f;
-        }
-        if (horizontal_split)
-        {
-            ImGui::SameLine();
-            if (ImGui::Checkbox("4-way", &vertical_split)) render_settings.split_ratio.y = 0.5f;
-        }
         ImGui::Text("Render Mode");
         ImGui::PushItemWidth(0);
-        dropdown_helper("top_left", render_settings.top_left_render_mode, RenderModes);
-        if (horizontal_split)
+        dropdown_helper("render_mode", render_settings.render_mode, RenderModes);
+
+        ImGui::Checkbox("Visualize Probes", &visualize_probes);
+        ImGui::Text("Number of Probes");
+        if (ImGui::SliderInt("X", &ir.probe_count.x, 1, 19) ||
+            ImGui::SliderInt("Y", &ir.probe_count.y, 1, 19) ||
+            ImGui::SliderInt("Z", &ir.probe_count.z, 1, 19))
         {
-            dropdown_helper("top_right", render_settings.top_right_render_mode, RenderModes);
-            if (vertical_split)
+            need_change_probe_texture = true;
+        }
+        ImGui::Text("Number of Probe Rays");
+
+        if (ImGui::SliderInt("(sqrt)", &ir.sqrt_rays_per_probe, 2, 30))
+        {
+            need_change_probe_texture = true;
+        }
+        ImGui::Text("Probe Distance");
+        if (ImGui::SliderInt("dist", &ir.side_length, 2, 15))
+        {
+            need_generate_probe_rays = true;
+        }
+
+        ImGui::Text("Field Origin");
+        ImGui::PushItemWidth(125);
+        if (ImGui::DragFloat3("ori", glm::value_ptr(ir.field_origin), 0.2))
+        {
+            need_generate_probe_rays = true;
+        }
+
+        if (need_change_probe_texture || need_generate_probe_rays)
+        {
+            if (ImGui::Button("Recalculate Probes", ImVec2(175, 30)))
             {
-                dropdown_helper("bottom_left", render_settings.bottom_left_render_mode,
-                                RenderModes);
-                dropdown_helper("bottom_right", render_settings.bottom_right_render_mode,
-                                RenderModes);
+                recreate_probe_textures();
             }
-            ImGui::SliderFloat("X Split", &render_settings.split_ratio.x, 0.f, 1.f);
-            if (vertical_split)
-                ImGui::SliderFloat("Y Split", &render_settings.split_ratio.y, 0.f, 1.f);
-        }
-        if (!vertical_split)
-        {
-            render_settings.bottom_left_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_right_render_mode = render_settings.top_right_render_mode;
-        }
-        if (!horizontal_split)
-        {
-            render_settings.top_right_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_left_render_mode = render_settings.top_left_render_mode;
-            render_settings.bottom_right_render_mode = render_settings.top_left_render_mode;
         }
     }
     ImGui::End();
@@ -459,9 +493,7 @@ void RVPT::reload_shaders()
     pipeline_builder.recompile_pipelines();
 }
 
-void RVPT::toggle_debug() { debug_overlay_enabled = !debug_overlay_enabled; }
-void RVPT::toggle_wireframe_debug() { debug_wireframe_mode = !debug_wireframe_mode; }
-void RVPT::set_raytrace_mode(int mode) { render_settings.top_left_render_mode = mode; }
+void RVPT::set_raytrace_mode(int mode) { render_settings.render_mode = mode; }
 
 // Private functions //
 bool RVPT::context_init()
@@ -626,6 +658,102 @@ void RVPT::create_framebuffers()
     }
 }
 
+void RVPT::recreate_probe_textures()
+{
+    for (int i = 0; i < per_frame_data.size(); i++)
+    {
+        const VkFence& f = per_frame_data[i].probe_work_fence.get();
+        const VkFence& f2 = per_frame_data[i].raytrace_work_fence.get();
+
+        vkWaitForFences(vk_device, 1, &f, VK_TRUE, 3e9);
+        vkWaitForFences(vk_device, 1, &f2, VK_TRUE, 3e9);
+    }
+
+    if (need_change_probe_texture)
+    {
+        // Currently this causes crashes, but we need to properly delete the image
+        // before creating the next ones...
+        /* rendering_resources->probe_texture_albedo.sampler.~HandleWrapper();
+           rendering_resources->probe_texture_albedo.image_view.~HandleWrapper();
+           rendering_resources->probe_texture_albedo.image_allocation.~Allocation();
+           rendering_resources->probe_texture_albedo.image.~HandleWrapper();*/
+
+        int probe_texture_width = ir.probe_count.x * ir.probe_count.z * ir.sqrt_rays_per_probe;
+        int probe_texture_height = ir.probe_count.y * ir.sqrt_rays_per_probe;
+
+        rendering_resources->probe_texture_albedo =
+            VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture_albedo",
+                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
+                      probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                      VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                      static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+                      VK::MemoryUsage::gpu);
+
+        rendering_resources->probe_texture_distance =
+            VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture_distance",
+                      VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
+                      probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                      VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                      static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+                      VK::MemoryUsage::gpu);
+
+        for (int i = 0; i < per_frame_data.size(); i++)
+        {
+            auto& frame = per_frame_data[i];
+
+            std::vector<VK::DescriptorUseVector> raytracing_descriptors;
+            raytracing_descriptors.push_back(std::vector{frame.settings_uniform.descriptor_info()});
+            raytracing_descriptors.push_back(std::vector{frame.output_image.descriptor_info()});
+            raytracing_descriptors.push_back(std::vector{frame.camera_uniform.descriptor_info()});
+
+            raytracing_descriptors.push_back(
+                std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+            raytracing_descriptors.push_back(
+                std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
+
+            raytracing_descriptors.push_back(
+                std::vector{frame.irradiance_field_uniform.descriptor_info()});
+
+            rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(
+                frame.raytracing_descriptor_sets, raytracing_descriptors);
+        }
+
+        need_generate_probe_rays = true;
+    }
+
+    if (need_generate_probe_rays)
+    {
+        generate_probe_rays();
+
+        if (need_change_probe_texture)
+        {
+            for (int i = 0; i < per_frame_data.size(); i++)
+            {
+                auto& frame = per_frame_data[i];
+                // vkDestroyBuffer(vk_device, frame.probe_buffer.get(), NULL);
+                frame.probe_buffer =
+                    VK::Buffer(vk_device, memory_allocator, "probes_buffer_" + std::to_string(i),
+                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                               sizeof(ProbeRay) * probe_rays.size(), VK::MemoryUsage::cpu_to_gpu);
+
+                std::vector<VK::DescriptorUseVector> probe_descriptors;
+                probe_descriptors.push_back(std::vector{frame.settings_uniform.descriptor_info()});
+                probe_descriptors.push_back(std::vector{frame.probe_buffer.descriptor_info()});
+                probe_descriptors.push_back(
+                    std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+                probe_descriptors.push_back(
+                    std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
+                probe_descriptors.push_back(
+                    std::vector{frame.irradiance_field_uniform.descriptor_info()});
+                rendering_resources->probe_descriptor_pool.update_descriptor_sets(
+                    frame.probe_descriptor_sets, probe_descriptors);
+            }
+        }
+    }
+
+    need_change_probe_texture = false;
+}
+
 RVPT::RenderingResources RVPT::create_rendering_resources()
 {
     std::vector<VkDescriptorSetLayoutBinding> layout_bindings = {
@@ -647,45 +775,43 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
 
     auto fullscreen_triangle_pipeline = pipeline_builder.create_pipeline(fullscreen_details);
     std::vector<VkDescriptorSetLayoutBinding> compute_layout_bindings = {
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // result image
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // temporal image
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // random numbers
-        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // camera
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (albedo)
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,   1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (normal)
-        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // probe texture (distances)
-		{11, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // irradiance field info
-        {12, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // HELEN: ADDED TEXTURE
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // result image
+        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // camera
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // probe texture (albedo)
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // probe texture (distances)
+        {5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // irradiance field info
     };
 
     /* LOOK: Add stuff here if you want to add more variables to the probe pass shader.
              There are different descriptor types:
                    UNIFORM_BUFFER -> for uniforms
-                   STORAGE_BUFFER -> you can write to these, but here they act as uniforms. that's how original code passes in spheres / triangles
-                   STORAGE_IMAGE  -> textures */
+                   STORAGE_BUFFER -> you can write to these, but here they act as uniforms. that's
+       how original code passes in spheres / triangles STORAGE_IMAGE  -> textures */
 
     std::vector<VkDescriptorSetLayoutBinding> probe_layout_bindings = {
-        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // render settings
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // rays
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output albedo
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output normals
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,  1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // output distance
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // spheres
-        {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // triangles
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, // materials
-        {8, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}  // irradiance field info
+        {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // render settings
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},  // rays
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // output albedo
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr},  // output distance
+        {4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT,
+         nullptr}  // irradiance field info
     };
 
     // Probe pipeline setup
-    auto probe_descriptor_pool = VK::DescriptorPool(
-        vk_device, probe_layout_bindings, MAX_FRAMES_IN_FLIGHT, "probe_descriptor_pool");
+    auto probe_descriptor_pool = VK::DescriptorPool(vk_device, probe_layout_bindings,
+                                                    MAX_FRAMES_IN_FLIGHT, "probe_descriptor_pool");
 
-    auto probe_pipeline_layout = pipeline_builder.create_layout(
-        {probe_descriptor_pool.layout()}, {}, "probe_pipeline_layout");
+    auto probe_pipeline_layout = pipeline_builder.create_layout({probe_descriptor_pool.layout()},
+                                                                {}, "probe_pipeline_layout");
 
     VK::ComputePipelineDetails probe_details;
     probe_details.name = "probe_compute_pipeline";
@@ -696,7 +822,7 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
 
     // Raytrace pipeline setup
     auto raytrace_descriptor_pool = VK::DescriptorPool(
-        vk_device, compute_layout_bindings, MAX_FRAMES_IN_FLIGHT, "raytrace_descriptor_pool");  
+        vk_device, compute_layout_bindings, MAX_FRAMES_IN_FLIGHT, "raytrace_descriptor_pool");
 
     auto raytrace_pipeline_layout = pipeline_builder.create_layout(
         {raytrace_descriptor_pool.layout()}, {}, "raytrace_pipeline_layout");
@@ -743,92 +869,27 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
     debug_details.polygon_mode = VK_POLYGON_MODE_LINE;
     auto wireframe = pipeline_builder.create_pipeline(debug_details);
 
+    /* LOOK: These are the actual definitions of the textures using VK::Image */
     int probe_texture_width = ir.probe_count.x * ir.probe_count.z * ir.sqrt_rays_per_probe;
     int probe_texture_height = ir.probe_count.y * ir.sqrt_rays_per_probe;
 
-    /* LOOK: These are the actual definitions of the textures using VK::Image */
-    auto probe_texture_albedo = VK::Image(
-        vk_device,
-        memory_allocator,
-        *graphics_queue,
-        "probe_texture",
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL,
-        probe_texture_width,
-        probe_texture_height,
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
-        VK::MemoryUsage::gpu
-    );
+    auto probe_texture_albedo =
+        VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture_albedo",
+                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
+                  probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                  static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+                  VK::MemoryUsage::gpu);
 
-    auto probe_texture_normals = VK::Image(
-        vk_device,
-        memory_allocator,
-        *graphics_queue,
-        "probe_texture",
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL,
-        probe_texture_width,
-        probe_texture_height,
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
-        VK::MemoryUsage::gpu
-    );
+    auto probe_texture_distance =
+        VK::Image(vk_device, memory_allocator, *graphics_queue, "probe_texture",
+                  VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, probe_texture_width,
+                  probe_texture_height, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
+                  VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                  static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
+                  VK::MemoryUsage::gpu);
 
-    auto probe_texture_distance = VK::Image(
-        vk_device,
-        memory_allocator,
-        *graphics_queue,
-        "probe_texture",
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL,
-        probe_texture_width,
-        probe_texture_height,
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(probe_texture_width * probe_texture_height * 4),
-        VK::MemoryUsage::gpu
-    );
-
-    // HELEN: ADDED THIS
-    auto block_texture = VK::Image(
-        vk_device, 
-        memory_allocator, 
-        *graphics_queue, 
-        "block_texture",
-        VK_FORMAT_R8G8B8A8_UNORM, 
-        VK_IMAGE_TILING_OPTIMAL, 
-        512,
-        512, 
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL, 
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(512 * 512 * 4),
-        VK::MemoryUsage::gpu
-    );
-
-    //createTextureImage(context.device.physical_device.physical_device, vk_device);
-
-    auto temporal_storage_image = VK::Image(
-        vk_device,
-        memory_allocator,
-        *graphics_queue,
-        "temporal_storage_image",
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_TILING_OPTIMAL,
-        window_ref.get_settings().width,
-        window_ref.get_settings().height,
-        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_IMAGE_ASPECT_COLOR_BIT,
-        static_cast<VkDeviceSize>(window_ref.get_settings().width *
-                                  window_ref.get_settings().height * 4),
-        VK::MemoryUsage::gpu);
+    auto block_texture = create_block_texture();
 
     VkFormat depth_format =
         VK::get_depth_image_format(context.device.physical_device.physical_device);
@@ -857,10 +918,8 @@ RVPT::RenderingResources RVPT::create_rendering_resources()
                                     opaque,
                                     wireframe,
                                     std::move(probe_texture_albedo),
-                                    std::move(probe_texture_normals),
                                     std::move(probe_texture_distance),
-                                    std::move(block_texture), // HELEN: ADDED THIS
-                                    std::move(temporal_storage_image),
+                                    std::move(block_texture),
                                     std::move(depth_image)};
 }
 
@@ -878,29 +937,12 @@ void RVPT::add_per_frame_data(int index)
                                   static_cast<VkDeviceSize>(window_ref.get_settings().width *
                                                             window_ref.get_settings().height * 4),
                                   VK::MemoryUsage::gpu);
-    auto random_buffer =
-        VK::Buffer(vk_device, memory_allocator, "random_data_uniform_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                   sizeof(decltype(random_numbers)::value_type) * random_numbers.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
 
     auto temp_camera_data = scene_camera.get_data();
     auto camera_uniform =
         VK::Buffer(vk_device, memory_allocator, "camera_uniform_" + std::to_string(index),
                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                    sizeof(decltype(temp_camera_data)::value_type) * temp_camera_data.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
-    auto sphere_buffer =
-        VK::Buffer(vk_device, memory_allocator, "spheres_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Sphere) * spheres.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
-    auto triangle_buffer =
-        VK::Buffer(vk_device, memory_allocator, "triangles_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Triangle) * triangles.size(),
-                   VK::MemoryUsage::cpu_to_gpu);
-    auto material_buffer =
-        VK::Buffer(vk_device, memory_allocator, "materials_buffer_" + std::to_string(index),
-                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, sizeof(Material) * materials.size(),
                    VK::MemoryUsage::cpu_to_gpu);
 
     // LOOK: the definition of the probe ray buffer as well as command buffer + workfence
@@ -914,9 +956,8 @@ void RVPT::add_per_frame_data(int index)
                           "probe_command_buffer_" + std::to_string(index));
     auto probe_work_fence = VK::Fence(vk_device, "probe_work_fence_" + std::to_string(index));
 
-	// S_CHANGED
-    auto irradiance_field_uniform =
-        VK::Buffer(vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
+    auto irradiance_field_uniform = VK::Buffer(
+        vk_device, memory_allocator, "irradiance_field_uniform_" + std::to_string(index),
         VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(IrradianceField), VK::MemoryUsage::cpu_to_gpu);
 
     auto raytrace_command_buffer =
@@ -927,8 +968,6 @@ void RVPT::add_per_frame_data(int index)
     // descriptor sets
     auto image_descriptor_set = rendering_resources->image_pool.allocate(
         "output_image_descriptor_set_" + std::to_string(index));
-    auto temporal_image_descriptor_set = rendering_resources->image_pool.allocate(
-        "temporal_image_descriptor_set_" + std::to_string(index));
     auto raytracing_descriptor_set = rendering_resources->raytrace_descriptor_pool.allocate(
         "raytrace_descriptor_set_" + std::to_string(index));
     auto probe_descriptor_set = rendering_resources->probe_descriptor_pool.allocate(
@@ -942,38 +981,25 @@ void RVPT::add_per_frame_data(int index)
     std::vector<VK::DescriptorUseVector> raytracing_descriptors;
     raytracing_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{output_image.descriptor_info()});
-    raytracing_descriptors.push_back(
-        std::vector{rendering_resources->temporal_storage_image.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{random_buffer.descriptor_info()});
     raytracing_descriptors.push_back(std::vector{camera_uniform.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
-    raytracing_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
-	
+
     raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
     raytracing_descriptors.push_back(
-        std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
-    raytracing_descriptors.push_back(
         std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-    // S_CHANGED
     raytracing_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
-    raytracing_descriptors.push_back(
-        std::vector{rendering_resources->block_texture.descriptor_info()}); // HELEN: CHANGED THIS
 
     rendering_resources->raytrace_descriptor_pool.update_descriptor_sets(raytracing_descriptor_set,
                                                                          raytracing_descriptors);
 
     // LOOK: need to update this if you update the {0, 1, 2} thing referenced earlier
-    std::vector<VK::DescriptorUseVector> probe_descriptors; // change this when you add more images
+    std::vector<VK::DescriptorUseVector> probe_descriptors;
     probe_descriptors.push_back(std::vector{settings_uniform.descriptor_info()});
     probe_descriptors.push_back(std::vector{probe_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
-    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_normals.descriptor_info()});
-    probe_descriptors.push_back(std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
-    probe_descriptors.push_back(std::vector{sphere_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{triangle_buffer.descriptor_info()});
-    probe_descriptors.push_back(std::vector{material_buffer.descriptor_info()});
+    probe_descriptors.push_back(
+        std::vector{rendering_resources->probe_texture_albedo.descriptor_info()});
+    probe_descriptors.push_back(
+        std::vector{rendering_resources->probe_texture_distance.descriptor_info()});
     probe_descriptors.push_back(std::vector{irradiance_field_uniform.descriptor_info()});
     rendering_resources->probe_descriptor_pool.update_descriptor_sets(probe_descriptor_set,
                                                                       probe_descriptors);
@@ -995,14 +1021,12 @@ void RVPT::add_per_frame_data(int index)
                                                                       debug_descriptors);
 
     per_frame_data.push_back(RVPT::PerFrameData{
-        std::move(settings_uniform), std::move(output_image), std::move(random_buffer),
-        std::move(camera_uniform), std::move(sphere_buffer), std::move(triangle_buffer),
-        std::move(material_buffer), std::move(probe_buffer),
-        std::move(probe_command_buffer), std::move(probe_work_fence),
-		std::move(irradiance_field_uniform),
-        std::move(raytrace_command_buffer), std::move(raytrace_work_fence),
-        image_descriptor_set, raytracing_descriptor_set, probe_descriptor_set,
-        std::move(debug_camera_uniform), std::move(debug_vertex_buffer), debug_descriptor_set});
+        std::move(settings_uniform), std::move(output_image), std::move(camera_uniform),
+        std::move(probe_buffer), std::move(probe_command_buffer), std::move(probe_work_fence),
+        std::move(irradiance_field_uniform), std::move(raytrace_command_buffer),
+        std::move(raytrace_work_fence), image_descriptor_set, raytracing_descriptor_set,
+        probe_descriptor_set, std::move(debug_camera_uniform), std::move(debug_vertex_buffer),
+        debug_descriptor_set});
 }
 
 void RVPT::record_command_buffer(VK::SyncResources& current_frame, uint32_t swapchain_image_index)
@@ -1060,22 +1084,6 @@ void RVPT::record_command_buffer(VK::SyncResources& current_frame, uint32_t swap
                             nullptr);
     vkCmdDraw(cmd_buf, 3, 1, 0, 0);
 
-    if (debug_overlay_enabled)
-    {
-        auto pipeline = pipeline_builder.get_pipeline(
-            debug_wireframe_mode ? rendering_resources->debug_wireframe_pipeline
-                                 : rendering_resources->debug_opaque_pipeline);
-        vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-        vkCmdBindDescriptorSets(
-            cmd_buf, VK_PIPELINE_BIND_POINT_GRAPHICS, rendering_resources->debug_pipeline_layout, 0,
-            1, &per_frame_data[current_frame_index].debug_descriptor_sets.set, 0, nullptr);
-
-        bind_vertex_buffer(cmd_buf, per_frame_data[current_frame_index].debug_vertex_buffer);
-
-        vkCmdDraw(cmd_buf, (uint32_t)triangles.size() * 3, 1, 0, 0);
-    }
-
     if (show_imgui)
     {
         imgui_impl->draw(cmd_buf, current_frame_index);
@@ -1091,6 +1099,9 @@ void RVPT::record_compute_command_buffer()
     command_buffer.begin();
     VkCommandBuffer cmd_buf = command_buffer.get();
 
+    uint32_t queue_family =
+        compute_queue.has_value() ? compute_queue->get_family() : graphics_queue->get_family();
+
     VkImageMemoryBarrier probe_image_barrier = {};
     probe_image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     probe_image_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -1099,20 +1110,8 @@ void RVPT::record_compute_command_buffer()
     probe_image_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     probe_image_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
     probe_image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    VkImageMemoryBarrier in_temporal_image_barrier = {};
-    in_temporal_image_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    in_temporal_image_barrier.oldLayout = VK_IMAGE_LAYOUT_GENERAL;
-    in_temporal_image_barrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    in_temporal_image_barrier.image = rendering_resources->temporal_storage_image.image.handle;
-    in_temporal_image_barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    in_temporal_image_barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    in_temporal_image_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-    uint32_t queue_family =
-        compute_queue.has_value() ? compute_queue->get_family() : graphics_queue->get_family();
-    in_temporal_image_barrier.dstQueueFamilyIndex = queue_family;
-    in_temporal_image_barrier.srcQueueFamilyIndex = queue_family;
+    probe_image_barrier.dstQueueFamilyIndex = queue_family;
+    probe_image_barrier.srcQueueFamilyIndex = queue_family;
 
     // LOOK: Here is where we dispatch probe shader
     vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -1122,18 +1121,14 @@ void RVPT::record_compute_command_buffer()
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
                       pipeline_builder.get_pipeline(rendering_resources->probe_pipeline));
 
-    vkCmdBindDescriptorSets(
-        cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE, rendering_resources->probe_pipeline_layout, 0,
-        1, &per_frame_data[current_frame_index].probe_descriptor_sets.set, 0, 0);
+    vkCmdBindDescriptorSets(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            rendering_resources->probe_pipeline_layout, 0, 1,
+                            &per_frame_data[current_frame_index].probe_descriptor_sets.set, 0, 0);
 
-    vkCmdDispatch(cmd_buf, ceil( (float) rendering_resources->probe_texture_albedo.width / 16.0f),
-                           ceil( (float) rendering_resources->probe_texture_albedo.height / 16.0f), 1);
+    vkCmdDispatch(cmd_buf, ceil((float)rendering_resources->probe_texture_albedo.width / 16.0f),
+                  ceil((float)rendering_resources->probe_texture_albedo.height / 16.0f), 1);
 
     // Dispatch raytracing shader
-
-    vkCmdPipelineBarrier(cmd_buf, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK::FLAGS_NONE, 0, nullptr, 0,
-                         nullptr, 1, &in_temporal_image_barrier);
 
     vkCmdBindPipeline(cmd_buf, VK_PIPELINE_BIND_POINT_COMPUTE,
                       pipeline_builder.get_pipeline(rendering_resources->raytrace_pipeline));
@@ -1147,21 +1142,6 @@ void RVPT::record_compute_command_buffer()
     command_buffer.end();
 }
 
-void RVPT::add_material(Material material)
-{
-    materials.emplace_back(material);
-}
-
-void RVPT::add_sphere(Sphere sphere)
-{
-    spheres.emplace_back(sphere);
-}
-
-void RVPT::add_triangle(Triangle triangle)
-{
-    triangles.emplace_back(triangle);
-}
-
 #define PI 3.1415926
 
 void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
@@ -1171,19 +1151,16 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
     output.clear();
     output.resize(num_rays);
 
-    int i = 0; 
+    int i = 0;
 
     for (int y = 0; y < sqrt_num_rays; y++)
     {
         for (int x = 0; x < sqrt_num_rays; x++)
         {
-            
             // First generate uniform sample
-            glm::vec2 sample(x * inv_sqrt,
-                             y * inv_sqrt);
+            glm::vec2 sample((x + float(rand()) / float(RAND_MAX)) * inv_sqrt,
+                             (y + float(rand()) / float(RAND_MAX)) * inv_sqrt);
 
-            sample += inv_sqrt / 2.0f;
-            
             // Then map to a sphere
             float z = 1 - (2 * sample.x);
             glm::vec3 sphere_sample(cosf(2.0f * PI * sample.y) * sqrtf(1 - (z * z)),
@@ -1199,22 +1176,24 @@ void generate_samples(std::vector<glm::vec3>& output, int sqrt_num_rays)
 // probe positions in the irradiance field.
 void RVPT::generate_probe_rays()
 {
-    // Generate uniform samples
-    std::vector<glm::vec3> samples;
-    generate_samples(samples, ir.sqrt_rays_per_probe);
+    probe_rays.clear();
 
     glm::ivec3 dim = ir.probe_count;
     int offset = ir.side_length;
 
     int num_probes = dim.x * dim.y * dim.z;
 
+    // Generate stratified samples
+    std::vector<glm::vec3> samples;
+    generate_samples(samples, ir.sqrt_rays_per_probe);
+
     for (int p_index = 0; p_index < num_probes; p_index++)
     {
         int py = p_index / (ir.probe_count.x * ir.probe_count.z);
-        
+
         int leftover = p_index - (py * ir.probe_count.x * ir.probe_count.z);
         int pz = leftover / ir.probe_count.x;
-        
+
         int px = leftover - pz * ir.probe_count.x;
 
         glm::ivec3 probe_index_3d(px, py, pz);
@@ -1222,17 +1201,15 @@ void RVPT::generate_probe_rays()
         glm::vec3 probe_origin = probe_index_3d - ((dim - glm::ivec3(1)) / 2);
 
         probe_origin *= offset;
-        
+
         probe_origin += ir.field_origin;
 
         int x = 0, y = 0;
 
         for (int i = 0; i < samples.size(); i++)
         {
-            probe_rays.emplace_back(ProbeRay(probe_origin,
-                                             glm::normalize(samples[i]),
-                                             p_index,
-                                             glm::vec2(x, y)));
+            probe_rays.emplace_back(
+                ProbeRay(probe_origin, glm::normalize(samples[i]), p_index, glm::vec2(x, y)));
 
             x++;
             if (x >= ir.sqrt_rays_per_probe)
@@ -1242,7 +1219,8 @@ void RVPT::generate_probe_rays()
             }
         }
     }
-    
+
+    need_generate_probe_rays = false;
 }
 
 void RVPT::get_asset_path(std::string& asset_path)
