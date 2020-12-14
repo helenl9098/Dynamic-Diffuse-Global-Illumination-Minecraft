@@ -39,7 +39,7 @@ To approximate global illumination at points in a scene, we can utilize *light f
 
 The implementation of these probes in Majercik et. al's paper differs from the McGuire et. al implementation. Before the scene is raytraced, each of the *m* probes sends out *n* rays that potentially intersect with the scene. We find the irradiance value at those intersections, i.e. the direct and indirect lighting at that point, and we also record the distance from the originating probe to that intersection. This information is stored in a texture; each pixel corresponds to a ray from a probe, and the pixels corresponding to one probe are packed together.
 
-| ![](/img/albedo_texture.png)          | ![](/img/cave.png)                      |
+| ![](/img/albedo_texture.PNG)          | ![](/img/cave.PNG)                      |
 | ------------------------------------ | -------------------------------------- |
 | An example of the probe ray texture. | A capture of the scene, for reference. |
 
@@ -47,7 +47,7 @@ The implementation of these probes in Majercik et. al's paper differs from the M
 
 After the probes collect their data, the scene is raytraced in a compute shader and rendered to an image on the screen. For every ray that finds an intersection in the scene, we first find the direct lighting at that point. Then, we identify the eight closest probes to that point in the scene. The grid-based structure of the irradiance field allows every point in the scene to be encapsulated in some *probe cage*—a set of eight probes that form a cube surrounding the point.
 
-| ![](img/probe_cage.png)                                      | ![](img/probe_vicinity_debug.png)                            |
+| ![](/img/probe_cage.PNG)                                      | ![](/img/probe_vicinity_debug.PNG)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | A figure depicting the eight probes around a pixel on the green triangle, taken from the paper. | A debug view of the probe indices that correspond to pixels in the scene. The color corresponds to the index of the bottom, front, leftmost probe in the cage surrounding each pixel. |
 
@@ -63,9 +63,15 @@ The paper describes various methods to ensure that the indirect lighting appears
 
 These were implemented as described in the paper, using their supplemental code as reference. However, the Chebyshev visibility test gave us undesirable artifacts, so we have chosen not to include it in our weight calculations.
 
-| ![](img/no_weights_indirect.png)   | ![](img/weights_indirect.png)   |
+| ![](img/weights/cornell_il_unweighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect lighting without weights. | Indirect lighting with weights. |
+
+
+| ![](img/weights/cornell_fl_unweighted_cropped.png)   | ![](img/weights/cornell_fl_weighted_cropped.png)   |
+| ---------------------------------- | ------------------------------- |
+| Indirect and direct lighting without weights. | Indirect and direct lighting with weights. |
+
 
 ### Scene Generation
 
@@ -73,9 +79,9 @@ To test the real-time efficacy of our DDGI implementation, we procedurally gener
 
 The block textures were also procedurally generated using the UVs at the point of intersection, which we calculated using the intersection position and normal. Using the UVs and intersection position, we were able to generate vertical stripes, dots, and other textures for our scene. 
 
-| ![](img/probe_cage.png)                                      | ![](img/probe_vicinity_debug.png)                            |
+| ![](/img/empty_cave.png)                                      | ![](/img/mushroom_close.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Our textured cave scene without any mushroom, lit using direct lighting. | A closer look at one of our mushrooms lit using direct lighting. |
+| Our textured cave scene without any mushroom, lit using DDGI. | A closer look at one of our mushrooms & textures lit using DDGI. |
 
 When raytracing the scene, we used grid marching in order to find the point of intersection. Grid marching involves traversing down a ray in increments of the smallest distance to the next block, essentially checking every grid block that a ray passes through. At each grid block, we would get its block type based on our procedural scene, and continue marching down the ray if the block type is empty. 
 
@@ -83,7 +89,17 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 
 ## Results
 
-*To be updated when the project is finished.*
+![](/img/coverimage1.png)
+
+![](/img/results_example_1.png)
+
+![](/img/cover3.png)
+
+![](/img/cover4.png)
+
+![](/img/cornell_box_whole.png)
+
+![](/img/GI_cornell_breakdown.png)
 
 ## Performance Analysis
 
@@ -163,4 +179,14 @@ While increasing the number of rays per probe results in increased lighting info
 
 
 ### Dynamic vs. Static Lights
+
+## Bloopers
+
+| ![](/img/bloopers/combined_without_visibility.PNG)            | ![](/img/bloopers/indirect_from_probes_blooper3.PNG)                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Did not test for points outside irradiance field | Sampled probe with wrong direction. |
+
+| ![](/img/bloopers/indirect_kinda_working.png) | ![](/img/bloopers/indirect_working_more.png)                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Combined direct and indirect incorrectly. No weighting. | Textures were sampling out of bounds and resulted in incorrect color bleeding. |
 
