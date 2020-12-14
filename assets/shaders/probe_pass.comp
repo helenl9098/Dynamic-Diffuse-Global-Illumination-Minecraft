@@ -210,29 +210,8 @@ vec3 get_direct_lighting(Isect info) {
     {
         return info.mat.base_color * direct_lighting / num_visible_lights;
     }
-	// if (hit_scene)
-	// {
-    // return 0.2 * info.mat.base_color * lambert;
-	// }
 
 	return vec3(0, 0, 0);
-
-
-
-	// Ray light_feeler = Ray(info.pos, light_vec);
-	// Isect temp_info;
-	// if (intersect_scene(light_feeler, 0, INF, temp_info)) {
-	// 	float lambert = clamp(dot(normalize(info.normal),
-    //                               normalize(get_light(render_settings.scene, 0).pos - info.pos)),
-    //                               0.0, 1.0);
-	// 	if (temp_info.type == 2) {
-    //         return info.mat.base_color * lambert;
-	//     } else {
-	//         return 0.2 * info.mat.base_color * lambert; // aesthetic choice to avoid dark renders / shadows
-	//     }
-	// }
-	// 
-	// return vec3(0, 0, 0);
 }
 
 void update_lights() {
@@ -242,11 +221,11 @@ void update_lights() {
         float t = 0.05f * render_settings.time;
 
         if (i == 0) {
-            float x = lights_0[i].pos.x;
+        /*    float x = lights_0[i].pos.x;
             float y = lights_0[i].pos.y;
             float z = lights_0[i].pos.z + 10 * cos(t * 0.1);
 			lights_0[i].pos = vec3(lights_0[i].pos.x, y, z);
-            continue;
+            continue;*/
         }
         
         float x = lights_0[i].pos.x + (i + 1) * 2 * sin(t * 0.5);
@@ -272,7 +251,7 @@ void update_lights() {
 }
 
 void main() {
-	//update_lights();
+	update_lights();
 
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;

@@ -278,7 +278,7 @@ bool RVPT::update()
     per_frame_data[current_frame_index].raytrace_work_fence.reset();
 
     float delta = static_cast<float>(time.since_last_frame());
-    render_settings.time += 10;
+    render_settings.time += 2;
     per_frame_data[current_frame_index].settings_uniform.copy_to(render_settings);
     per_frame_data[current_frame_index].camera_uniform.copy_to(camera_data);
 

@@ -39,15 +39,15 @@ To approximate global illumination at points in a scene, we can utilize *light f
 
 The implementation of these probes in Majercik et. al's paper differs from the McGuire et. al implementation. Before the scene is raytraced, each of the *m* probes sends out *n* rays that potentially intersect with the scene. We find the irradiance value at those intersections, i.e. the direct and indirect lighting at that point, and we also record the distance from the originating probe to that intersection. This information is stored in a texture; each pixel corresponds to a ray from a probe, and the pixels corresponding to one probe are packed together.
 
-| ![](/img/albedo_texture.PNG)          | ![](/img/cave.PNG)                      |
-| ------------------------------------ | -------------------------------------- |
-| An example of the probe ray texture. | A capture of the scene, for reference. |
+| ![](/img/cornell/cornell_texture.PNG) |         
+| ------------------------------------- |
+| An example of the probe ray texture, derived from the Cornell box scene. Each oblong "cell" of pixels corresponds to a probe in the scene.|
 
 ### Sampling Probes
 
 After the probes collect their data, the scene is raytraced in a compute shader and rendered to an image on the screen. For every ray that finds an intersection in the scene, we first find the direct lighting at that point. Then, we identify the eight closest probes to that point in the scene. The grid-based structure of the irradiance field allows every point in the scene to be encapsulated in some *probe cage*—a set of eight probes that form a cube surrounding the point.
 
-| ![](/img/probe_cage.PNG)                                      | ![](/img/probe_vicinity_debug.PNG)                            |
+| ![](/img/probe_cage.PNG)                                      | ![](/img/cornell/probe_vicinity_debug.PNG)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | A figure depicting the eight probes around a pixel on the green triangle, taken from the paper. | A debug view of the probe indices that correspond to pixels in the scene. The color corresponds to the index of the bottom, front, leftmost probe in the cage surrounding each pixel. |
 
@@ -131,7 +131,7 @@ Each probe sends out the same number of rays into the scene. Increasing this num
 
 However, it is not enough to say that the less rays there are, the better the performance. A minimum threshold of rays is required for accurate results. Having less rays of probe information leads to different irradiance results.
 
-| ![](/img/cave/indirect_cave_num_rays_16.png) | ![](/img/cave/indirect_cave_num_rays_144.png) | ![](/img/cave/indirect_cave_num_rays_1600.png) |
+| ![](/img/cave/indirect_cave_num_rays_16.PNG) | ![](/img/cave/indirect_cave_num_rays_144.PNG) | ![](/img/cave/indirect_cave_num_rays_1600.PNG) |
 | :-------------: |:-------------:|:-------------:|
 | 16 rays per probe | 144 rays per probe | 1600 rays per probe|
 
@@ -145,34 +145,44 @@ The distance between probes in the field impacts two parts of the shading proces
 | :-------------: |:-------------:|:-------------:|
 | probe distance: 6| probe distance: 8 | probe distance: 10|
 
-Here we demonstrate the variance in indirect lighting, based on change to the distance between probes in the irradiance field. (The size of the irradiance field itself has not changed.) Clearly, the placement of the probes throughout the scene is significant. 
+Here we demonstrate the variance in indirect lighting, based on change to the distance between probes in the irradiance field. (The size of the irradiance field itself has not changed.) Clearly, the placement of the probes throughout the scene is significant; beyond some probes being obsecured, the distance between the probes causes the lighting information itself to be more spread out, and potentially less accurate. However, increasing the distance of the probes can reduce the need to light the scene with more probes, which may be a desired tradeoff. Since this parameter has a completely qualitative measure, it's up to the viewer to determine what probe distance is appropriate for the scene, especially in combination with the number of probes.
 
 ### Number of Probes
 
-While increasing the number of rays per probe results in increased lighting information, so does increasing the number of probes themselves. In particular
-
+While increasing the number of rays per probe can result in more lighting information, so can increasing the number of probes themselves. The irradiance field can be expanded in all three directions, and the distance between probes can be modified so that the field is more sparse or dense. We explored four different sets of parameters for both the cave and Cornell scenes, as detailed below.
 
  | Cave   | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
-| :-------------: |:-------------:|:-------------:|:-------------:|:-------------:|
+| ------------- |-------------|-------------|-------------|-------------|
 | Probe Dimensions     | (7, 5, 5)     | (9, 7, 9)     | (11, 9, 11)     | (15, 15, 15) |
 | Probe Distance      | 18     | 11     | 9     | 7     |
 | Field Origin      | (-0.2, 0, 1.0)     | (1.4, 0, 1.0)     | (0, 0, 0)     | (0, 0, 0)     |
 
 
-
 | Cornell Box  | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
-| :-------------: |:-------------:|:-------------:|:-------------:|:-------------:|
+| ------------- |-------------| -------------|-------------|-------------|
 | Probe Dimensions     | (3, 3, 3)     | (5, 5, 5)     | (7, 7, 7)     | (11, 11, 11) |
 | Probe Distance      | 11     | 6     | 4     | 3     |
 | Field Origin      | (0, 0, 15)     | (0, 0, 15)     | (0, 0, 15)     | (0, 0, 15)     |
 
-| ![](/img/cornell/cornell_probes_layout_1.png) | ![](/img/cornell/cornell_probes_layout_2.PNG) | ![](/img/cornell/cornell_probes_layout_3.PNG) | ![](/img/cornell/cornell_probes_layout_4.png) |
-| :-------------: | :-------------: | :-------------: | :-------------: |
+| ![](/img/cornell/cornell_probes_layout_1.png) | ![](/img/cornell/cornell_probes_layout_2.PNG) | ![](/img/cornell/cornell_probes_layout_3.PNG) | ![](/img/cornell/cornell_probes_layout_4.PNG) |
+| ------------- | ------------- | ------------- | ------------- |
 | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
+
+Quantitatively, the framerate drops the more probes that there are in the scene. This is
+
+| ![](/img/charts/fps_num_probes_cave.png) | ![](/img/charts/fps_num_probes_cornell.png) |
+
+
+Qualitatively
+
+
+| ![](/img/cornell/GI_cornell_layout_1.PNG) ![](/img/cornell/GI_cornell_layout_3.PNG) | ![](/img/cornell/GI_cornell_layout_4.PNG) |
+| ------------- | ------------- | ------------- |
+| Layout 1 | Layout 3 | Layout 4 |
 
 ### Procedural Textures
 
-
+Because we involve noise functions (e.g. Worley noise, fractional brownian motion) to texture our cave, we need additional time to compute the color of a block in that scene. These calculations take up a notable amount of time: if we remove procedural texturing and fill the cave with flat colors, the scene renders at about **75 FPS**, while our use of procedural textures results in **60 FPS**. A **15 FPS** difference is not insignificant.
 
 ### Number of Lights
 
@@ -180,13 +190,15 @@ While increasing the number of rays per probe results in increased lighting info
 
 ### Dynamic vs. Static Lights
 
+
+
 ## Bloopers
 
 | ![](/img/bloopers/combined_without_visibility.PNG)            | ![](/img/bloopers/indirect_from_probes_blooper3.PNG)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Did not test for points outside irradiance field | Sampled probe with wrong direction. |
+| Here we did not test for points outside irradiance field. | This happened when we sampled probes with the wrong direction. |
 
 | ![](/img/bloopers/indirect_kinda_working.png) | ![](/img/bloopers/indirect_working_more.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Combined direct and indirect incorrectly. No weighting. | Textures were sampling out of bounds and resulted in incorrect color bleeding. |
+| Here we had combined direct and indirect lighting incorrectly. No weighting. | Our textures were sampling out of bounds and resulted in incorrect color bleeding. |
 
