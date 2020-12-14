@@ -39,7 +39,7 @@ To approximate global illumination at points in a scene, we can utilize *light f
 
 The implementation of these probes in Majercik et. al's paper differs from the McGuire et. al implementation. Before the scene is raytraced, each of the *m* probes sends out *n* rays that potentially intersect with the scene. We find the irradiance value at those intersections, i.e. the direct and indirect lighting at that point, and we also record the distance from the originating probe to that intersection. This information is stored in a texture; each pixel corresponds to a ray from a probe, and the pixels corresponding to one probe are packed together.
 
-| ![](/img/albedo_texture.png)          | ![](/img/cave.png)                      |
+| ![](/img/albedo_texture.PNG)          | ![](/img/cave.PNG)                      |
 | ------------------------------------ | -------------------------------------- |
 | An example of the probe ray texture. | A capture of the scene, for reference. |
 
@@ -47,7 +47,7 @@ The implementation of these probes in Majercik et. al's paper differs from the M
 
 After the probes collect their data, the scene is raytraced in a compute shader and rendered to an image on the screen. For every ray that finds an intersection in the scene, we first find the direct lighting at that point. Then, we identify the eight closest probes to that point in the scene. The grid-based structure of the irradiance field allows every point in the scene to be encapsulated in some *probe cage*—a set of eight probes that form a cube surrounding the point.
 
-| ![](img/probe_cage.png)                                      | ![](img/probe_vicinity_debug.png)                            |
+| ![](/img/probe_cage.PNG)                                      | ![](/img/probe_vicinity_debug.PNG)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | A figure depicting the eight probes around a pixel on the green triangle, taken from the paper. | A debug view of the probe indices that correspond to pixels in the scene. The color corresponds to the index of the bottom, front, leftmost probe in the cage surrounding each pixel. |
 
@@ -90,6 +90,10 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 ![](/img/cover3.png)
 
 ![](/img/cover4.png)
+
+![](/img/cornell_box_whole.png)
+
+![](/img/GI_cornell_breakdown.png)
 
 ## Performance Analysis
 
