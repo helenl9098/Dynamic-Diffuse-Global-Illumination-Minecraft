@@ -3,6 +3,8 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 
 ![](/img/coverfinal.png)
 
+##### [Final Presentation](https://docs.google.com/presentation/d/1LQay25jioh26Y8V01TIwC6G8QqHn2PhALPomNqUrzOA/edit?usp=sharing)
+
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Final Project**
 
 * Janine Liu
@@ -73,7 +75,7 @@ To approximate global illumination at points in a scene, we can utilize *light f
 
 The implementation of these probes in Majercik et. al's paper differs from the McGuire et. al implementation. Before the scene is raytraced, each of the *m* probes sends out *n* rays that potentially intersect with the scene. We find the irradiance value at those intersections, i.e. the direct and indirect lighting at that point, and we also record the distance from the originating probe to that intersection. This information is stored in a texture; each pixel corresponds to a ray from a probe, and the pixels corresponding to one probe are packed together.
 
-| ![](/img/cornell/cornell_texture.PNG) |         
+| ![](/img/cornell/cornell_texture.PNG) |
 | ------------------------------------- |
 | An example of the probe ray texture, derived from the Cornell box scene. Each oblong "cell" of pixels corresponds to a probe in the scene.|
 
@@ -228,7 +230,7 @@ Here we demonstrate the variance in indirect lighting, based on change to the di
 
 While increasing the number of rays per probe can result in more lighting information, so can increasing the number of probes themselves. The irradiance field can be expanded in all three directions, and the distance between probes can be modified so that the field is more sparse or dense. We explored four different sets of parameters for both the cave and Cornell scenes, as detailed below.
 
- | Cave   | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
+| Cave   | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
 | ------------- |-------------|-------------|-------------|-------------|
 | Probe Dimensions     | (7, 5, 5)     | (9, 7, 9)     | (11, 9, 11)     | (15, 15, 15) |
 | Probe Distance      | 18     | 11     | 9     | 7     |
