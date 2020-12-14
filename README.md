@@ -83,7 +83,13 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 
 ## Results
 
-*To be updated when the project is finished.*
+![](/img/coverimage1.png)
+
+![](/img/results_example_1.png)
+
+![](/img/cover3.png)
+
+![](/img/cover4.png)
 
 ## Performance Analysis
 
