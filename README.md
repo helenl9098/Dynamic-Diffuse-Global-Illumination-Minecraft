@@ -14,11 +14,25 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 
 
 ## Table of Contents
- * Introduction
- * Credits
- * Walkthrough
- * Results
- * Performance Analysis
+<!--ts-->
+   * [Introduction](#introduction)
+   * [Credits](#credits)
+   * [Walkthrough](#walkthrough)
+      * [Light Field Probes](#light-field-probes)
+      * [Sampling Probes](#sampling-probes)
+      * [Weights](#weights)
+      * [Scene Generation](#scene-generation)
+      * [Multiple Lights](#multiple-lights)
+   * [Results](#results)
+   * [Performance Analysis](#performance-analysis)
+      * [Number of Rays per Probe](#number-of-rays-per-probe)
+      * [Probe Distance](#probe-distance)
+      * [Number of Probes](#number-of-probes)
+      * [Procedural Textures](#procedural-textures)
+      * [Number of Lights](#number-of-lights)
+      * [Dynamic vs. Static Lights](#dynamic-vs-static-lights)
+   * [Bloopers](#bloopers)
+<!--te-->
 
 ## Introduction
 
