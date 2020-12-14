@@ -171,7 +171,7 @@ void main()
 		4: normal
         5: depth
 	*/
-    update_lights();
+    //update_lights();
 
     int integrator_idx = render_settings.render_mode;
 

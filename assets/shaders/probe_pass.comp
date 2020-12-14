@@ -251,7 +251,7 @@ void update_lights() {
 }
 
 void main() {
-	update_lights();
+	//update_lights();
 
 	int texture_width = irradiance_field.probe_count.x * irradiance_field.probe_count.z
 							* irradiance_field.sqrt_rays_per_probe;
