@@ -57,9 +57,15 @@ Once the probe cage has been determined, we iterate over every probe in the cage
 
 The paper describes an efficient technique to ensure that the indirect lighting appears to be continuous and accounts for dynamic geometry and lights. His technique is to use the following weights to blend information from the 8 closest probes per intersection: smooth backface weight, trilinear adjacency weight, chebyshev visibility weight, and log perception weight. The smooth backface weight culls indirect contribution by excluding probes that are not mutually visible to the point of intersection. The trilinear adjacency weight interpolates lighting contribution based on the distance between every probe. The chebyshev visibility test (a.k.a. variance shadow mapping) is a technique that counters shadow aliasing by approximating how shadows soften at shadow edges. The log perception weight counters human sensitivity to contrast in low-light conditions by scaling down dimly lit intersections. The log perception weight makes light leaks less apparent to the viewer.
 
-| ![](img/no_weights_indirect.png)   | ![](img/weights_indirect.png)   |
+| ![](img/weights/cornell_il_unweighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
 | ---------------------------------- | ------------------------------- |
 | Indirect lighting without weights. | Indirect lighting with weights. |
+
+
+| ![](img/weights/cornell_fl_unweighted_cropped.png)   | ![](img/weights/cornell_fl_weighted_cropped.png)   |
+| ---------------------------------- | ------------------------------- |
+| Indirect and direct lighting without weights. | Indirect and direct lighting with weights. |
+
 
 ### Scene Generation
 
@@ -67,9 +73,9 @@ To test the real-time efficacy of our DDGI implementation, we procedurally gener
 
 The block textures were also procedurally generated using the UVs at the point of intersection, which we calculated using the intersection position and normal. Using the UVs and intersection position, we were able to generate vertical stripes, dots, and other textures for our scene. 
 
-| ![](img/probe_cage.png)                                      | ![](img/probe_vicinity_debug.png)                            |
+| ![](/img/empty_cave.png)                                      | ![](/img/mushroom_close.png)                            |
 | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| Our textured cave scene without any mushroom, lit using direct lighting. | A closer look at one of our mushrooms lit using direct lighting. |
+| Our textured cave scene without any mushroom, lit using DDGI. | A closer look at one of our mushrooms & textures lit using DDGI. |
 
 When raytracing the scene, we used grid marching in order to find the point of intersection. Grid marching involves traversing down a ray in increments of the smallest distance to the next block, essentially checking every grid block that a ray passes through. At each grid block, we would get its block type based on our procedural scene, and continue marching down the ray if the block type is empty. 
 
