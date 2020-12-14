@@ -179,7 +179,9 @@ Wee use the following parameters for the cave and Cornell scenes unless otherwis
 
 Each probe sends out the same number of rays into the scene. Increasing this number will increase it across the entire irradiance field, and will also lead to an increased probe texture size. Therefore, sending more rays per probe requires more bandwidth and potentially more computational time between the probe-data shader and the raytracing shaders. This is supported by our observations of the FPS counter as we added in more probe rays.
 
-| ![](/img/charts/fps_probe_rays_cave.png) | ![](/img/charts/fps_probe_rays_cornell.png) |
+![](/img/charts/fps_probe_rays_cave.png) 
+
+![](/img/charts/fps_probe_rays_cornell.png)
 
 However, it is not enough to say that the less rays there are, the better the performance. A minimum threshold of rays is required for accurate results. Having less rays of probe information leads to different irradiance results.
 
@@ -220,15 +222,14 @@ While increasing the number of rays per probe can result in more lighting inform
 | ------------- | ------------- | ------------- | ------------- |
 | Layout 1 | Layout 2 | Layout 3 | Layout 4 |
 
-Quantitatively, the framerate drops the more probes that there are in the scene. This is
+Quantitatively, the framerate drops the more probes that there are in the scene. This is because as the number of probes increase, the number of rays we shoot out increase. Furthermore, the probe texture's dimensions will also have to increase to accommodate for the additional probes. All these increases will lead to a drop in performance, which you can see below:
 
-| ![](/img/charts/fps_num_probes_cave.png) | ![](/img/charts/fps_num_probes_cornell.png) |
+![](/img/charts/fps_num_probes_cave.png) 
+![](/img/charts/fps_num_probes_cornell.png) 
 
+Qualitively, the results really varied as the probe density changes. Looking at the below images, we see that a greater number of probes (Layout 3) doesn't necessarily mean it's more accurate than a scene with less probes (Layout 1). Thus, we determined that the specific placement of probes is very important to the overall results. However, we can conclude looking at the below images that we are more likely to get more illumination with an increase of probes, but the exact results do vary. Note: Layout 2 was not shown because it was the default we tested against.
 
-Qualitatively
-
-
-| ![](/img/cornell/GI_cornell_layout_1.PNG) ![](/img/cornell/GI_cornell_layout_3.PNG) | ![](/img/cornell/GI_cornell_layout_4.PNG) |
+| ![](/img/cornell/GI_cornell_layout_1.png) | ![](/img/cornell/GI_cornell_layout_3.PNG) | ![](/img/cornell/GI_cornell_layout_4.PNG) |
 | ------------- | ------------- | ------------- |
 | Layout 1 | Layout 3 | Layout 4 |
 
