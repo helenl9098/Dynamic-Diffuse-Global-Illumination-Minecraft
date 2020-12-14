@@ -134,7 +134,7 @@ To achieve the image above, we combined our direct lighting and indirecting resu
 
 UI            |  Function
 :-------------------------:|:-------------------------:
-![](/img/ui.png)  |  Our UI window shows the current FPS and lets you change the irradiance field parameters and camera FOV. Press "Recalculate Probes" to recimpute the indirect lighting. 
+![](/img/ui.png)  |  Our UI window shows the current FPS and lets you change the irradiance field parameters and camera FOV. Press "Recalculate Probes" to recompute the indirect lighting. 
 
 
 
