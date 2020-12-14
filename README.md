@@ -103,11 +103,15 @@ In order to further optimize our program, Majercik, et. al (2019) suggests to us
 
 ## Dynamic Lights
 
-Once we were sure that our program worked with a single, static light we added support for multiple, dynamic lights. The direct lighting with multiple lights is computed by averaging the direct contribution of each non-occluded light. Since indirect lighting is simply a series of accumulated direct lighting calculations, the aforementioned direct lighting calculation can be used multiple times in indirect lighting. To animate the lights, we update the positions of the lights every frame in our compute shaders using the elapsed time and trigonometric functions for periodic motion. For more interesting scenes, we added a light color and intensity to every light. The indirect lighting responds to the dynamic lights through the frame-by-frame update of the probe textures. Consequently, the direct and indirect lighting of every intersection responds to the changing lights in real-time. This approach does have a drawback in that the frame rate drops significantly with multiple lights. We suspect that this slow down is caused by the additional work necessary to compute the direct lighting for each light. Direct lighting computation would thus become a greater issue in the indirect lighting computation since it is the accumulation of multiple direct lighting calculations.
+Once we were sure that our program worked with a single, static light we added support for multiple, dynamic lights. The direct lighting with multiple lights is computed by averaging the direct contribution of each non-occluded light. Since indirect lighting is simply a series of accumulated direct lighting calculations, the aforementioned direct lighting calculation can be used multiple times in indirect lighting. 
+
+To animate the lights, we update the positions of the lights every frame in our compute shaders using the elapsed time and trigonometric functions for periodic motion. For more interesting scenes, we added a light color and intensity to every light. The indirect lighting responds to the dynamic lights through the frame-by-frame update of the probe textures. Consequently, the direct and indirect lighting of every intersection responds to the changing lights in real-time.
+
+This approach does have a drawback in that the frame rate drops significantly with multiple lights. We suspect that this slow down is caused by the additional work necessary to compute the direct lighting for each light. Direct lighting computation would thus become a greater issue in the indirect lighting computation since it is the accumulation of multiple direct lighting calculations.
 
 | ![](img/weights/cornell_fl_weighted_cropped.png)   | ![](img/weights/cornell_il_weighted_cropped.png)   |
 | ---------------------------------- | ------------------------------- |
-| Indirect and direct lighting with dynamic lights. | Indirect lighting with dynamic lights. |
+| Indirect and direct lighting with multiple lights. | Indirect lighting with multiple lights. |
 
 | ![](img/cave_1light.gif)   |
 | ---------------------------------- |
@@ -227,7 +231,7 @@ Quantitatively, the framerate drops the more probes that there are in the scene.
 ![](/img/charts/fps_num_probes_cave.png) 
 ![](/img/charts/fps_num_probes_cornell.png) 
 
-Qualitively, the results really varied as the probe density changes. Looking at the below images, we see that a greater number of probes (Layout 3) doesn't necessarily mean it's more accurate than a scene with less probes (Layout 1). Thus, we determined that the specific placement of probes is very important to the overall results. However, we can conclude looking at the below images that we are more likely to get more illumination with an increase of probes, but the exact results do vary. Note: Layout 2 was not shown because it was the default we tested against.
+Qualitatively, the results really varied as the probe density changes. Looking at the below images, we see that a greater number of probes (Layout 3) doesn't necessarily mean it's more accurate than a scene with less probes (Layout 1). Thus, we determined that the specific placement of probes is very important to the overall results. However, we can conclude looking at the below images that we are more likely to get more illumination with an increase of probes, but the exact results do vary. Note: Layout 2 was not shown because it was the default we tested against.
 
 | ![](/img/cornell/GI_cornell_layout_1.png) | ![](/img/cornell/GI_cornell_layout_3.PNG) | ![](/img/cornell/GI_cornell_layout_4.PNG) |
 | ------------- | ------------- | ------------- |
