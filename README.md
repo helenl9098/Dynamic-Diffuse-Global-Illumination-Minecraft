@@ -3,6 +3,8 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 
 ![](/img/coverfinal.png)
 
+![](/img/comparison.png)
+
 ##### [Final Presentation](https://docs.google.com/presentation/d/1LQay25jioh26Y8V01TIwC6G8QqHn2PhALPomNqUrzOA/edit?usp=sharing)
 
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Final Project**
@@ -34,6 +36,7 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
       * [Procedural Textures](#procedural-textures)
       * [Number of Lights](#number-of-lights)
       * [Dynamic vs. Static Lights](#dynamic-vs-static-lights)
+* [Future Work](#future-work)
    * [Bloopers](#bloopers)
 <!--te-->
 
@@ -272,6 +275,25 @@ Although our project intends to pull global illumination out of limited light so
 ### Dynamic vs. Static Lights
 
 We briefly tested how animating the lights affected performance, to see if it slowed it down terribly. For three lights in the Cornell scene, the framerate is at **250 FPS** for static and **220 FPS** for dynamic lights. However, for four lights in the cave scene, the framerate is at **29 FPS** for both static and dynamic lights. The actual calculation time should be consistent across scenes, so the discrepancy may result from their initial framerate levels; the Cornell box's framerate is more suspectible to change because of how high the framerate is already. Therefore, animating the lights may not impact the framerate as substantially as other parameters, at least for the cave scene. 
+
+
+
+## Future Work
+
+In the future, we would love to address the following features and concerns: 
+
+- Additional Probe Placements
+- Condensing Probe Textures for Less Memory Usage
+- Faster Approaches to averaging texture pixels
+- File-Loaded Textures
+- Integration with Vulkan Path Tracing Extension
+- More terrain generation for our Mini-Minecraft
+- Interactable Blocks and Player Physics
+- Glossy and Specular Reflections
+- Volumetric Rendering
+- Block Dynamics and Animation
+
+
 
 ## Bloopers
 
