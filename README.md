@@ -14,7 +14,7 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
 * Spencer Webster-Bass
   * [LinkedIn](https://www.linkedin.com/in/spencer-webster-bass/), [Github](https://github.com/spencerwb)
 * Helen (Hanyu) Liu
-  * [LinkedIn](https://www.linkedin.com/in/hliu20/), [personal website](http://liuhanyu.net/)
+  * [LinkedIn](https://www.linkedin.com/in/hliu20/), [personal website](http://liuhanyu.net/), [Github](https://github.com/helenl9098)
 
 
 ## Table of Contents
@@ -37,7 +37,7 @@ Dynamic Diffuse Global Illumination in Mini-Minecraft (DDGI Minecraft)
       * [Number of Lights](#number-of-lights)
       * [Dynamic vs. Static Lights](#dynamic-vs-static-lights)
 * [Future Work](#future-work)
-   * [Bloopers](#bloopers)
+* [Bloopers](#bloopers)
 <!--te-->
 
 ## Introduction
